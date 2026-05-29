@@ -1,10 +1,9 @@
 package com.ky.bananacycles.component
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,10 +20,13 @@ fun WasteCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp)
+            .padding(bottom = 12.dp)
             .clickable {
                 onClick()
-            }
+            },
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 4.dp
+        )
     ) {
 
         Column(
@@ -36,6 +38,8 @@ fun WasteCard(
                 style = MaterialTheme.typography.titleLarge
             )
 
+            Spacer(modifier = Modifier.height(8.dp))
+
             Text(
                 text = "Kategori: ${wasteItem.category}"
             )
@@ -45,8 +49,11 @@ fun WasteCard(
             )
 
             Text(
-                text = "Estimasi Harga: Rp ${wasteItem.estimatedPrice}"
+                text = "Rp ${wasteItem.estimatedPrice}"
             )
+
         }
+
     }
+
 }
