@@ -8,10 +8,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun LoginScreen(
-    onLoginSuccess: () -> Unit,
-    onRegisterClick: () -> Unit
+fun RegisterScreen(
+    onBackToLogin: () -> Unit
 ) {
+
+    var name by remember {
+        mutableStateOf("")
+    }
 
     var email by remember {
         mutableStateOf("")
@@ -31,11 +34,23 @@ fun LoginScreen(
     ) {
 
         Text(
-            text = "Banana Cycle",
+            text = "Register Account",
             style = MaterialTheme.typography.headlineMedium
         )
 
         Spacer(modifier = Modifier.height(20.dp))
+
+        OutlinedTextField(
+            value = name,
+            onValueChange = {
+                name = it
+            },
+            label = {
+                Text("Nama")
+            }
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
 
         OutlinedTextField(
             value = email,
@@ -63,20 +78,21 @@ fun LoginScreen(
 
         Button(
             onClick = {
-                onLoginSuccess()
+
             }
         ) {
-            Text("Login")
+            Text("Register")
         }
 
         Spacer(modifier = Modifier.height(10.dp))
 
         TextButton(
             onClick = {
-                onRegisterClick()
+                onBackToLogin()
             }
         ) {
-            Text("Belum punya akun? Register")
+            Text("Kembali ke Login")
         }
+
     }
 }

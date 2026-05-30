@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import com.ky.bananacycles.auth.LoginScreen
+import com.ky.bananacycles.auth.RegisterScreen
 import com.ky.bananacycles.screen.AccountScreen
 import com.ky.bananacycles.screen.MarketScreen
 import com.ky.bananacycles.screen.UploadWasteScreen
@@ -34,13 +35,32 @@ class MainActivity : ComponentActivity() {
                     mutableStateOf(false)
                 }
 
+                var showRegister by remember {
+                    mutableStateOf(false)
+                }
+
                 if (!isLoggedIn) {
 
-                    LoginScreen(
-                        onLoginSuccess = {
-                            isLoggedIn = true
-                        }
-                    )
+                    if (showRegister) {
+
+                        RegisterScreen(
+                            onBackToLogin = {
+                                showRegister = false
+                            }
+                        )
+
+                    } else {
+
+                        LoginScreen(
+                            onLoginSuccess = {
+                                isLoggedIn = true
+                            },
+                            onRegisterClick = {
+                                showRegister = true
+                            }
+                        )
+
+                    }
 
                 } else {
 
