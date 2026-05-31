@@ -14,9 +14,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import com.ky.bananacycles.auth.LoginScreen
 import com.ky.bananacycles.auth.RegisterScreen
+import com.ky.bananacycles.model.WasteItem
 import com.ky.bananacycles.screen.AccountScreen
 import com.ky.bananacycles.screen.MarketScreen
 import com.ky.bananacycles.screen.UploadWasteScreen
+import com.ky.bananacycles.screen.WasteDetailScreen
 import com.ky.bananacycles.ui.theme.BananaCyclesTheme
 
 class MainActivity : ComponentActivity() {
@@ -68,6 +70,10 @@ class MainActivity : ComponentActivity() {
                         mutableStateOf(0)
                     }
 
+                    var selectedWaste by remember {
+                        mutableStateOf<WasteItem?>(null)
+                    }
+
                     Scaffold(
 
                         bottomBar = {
@@ -94,7 +100,7 @@ class MainActivity : ComponentActivity() {
                                     icon = {
                                         Icon(
                                             Icons.Default.ShoppingCart,
-                                            contentDescription = "Sell"
+                                            contentDescription = null
                                         )
                                     },
                                     label = {
@@ -128,13 +134,40 @@ class MainActivity : ComponentActivity() {
                             )
                         ) {
 
-                            when (selectedTab) {
+                            when {
 
-                                0 -> MarketScreen()
+                                selectedWaste != null -> {
 
-                                1 -> UploadWasteScreen()
+                                    WasteDetailScreen(
+                                        wasteItem = selectedWaste!!,
+                                        onBack = {
+                                            selectedWaste = null
+                                        }
+                                    )
 
-                                2 -> AccountScreen()
+                                }
+
+                                selectedTab == 0 -> {
+
+                                    MarketScreen(
+                                        onWasteClick = { waste ->
+                                            selectedWaste = waste
+                                        }
+                                    )
+
+                                }
+
+                                selectedTab == 1 -> {
+
+                                    UploadWasteScreen()
+
+                                }
+
+                                selectedTab == 2 -> {
+
+                                    AccountScreen()
+
+                                }
 
                             }
 

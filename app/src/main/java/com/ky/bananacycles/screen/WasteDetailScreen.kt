@@ -1,6 +1,7 @@
 package com.ky.bananacycles.screen
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -10,7 +11,8 @@ import com.ky.bananacycles.model.WasteItem
 
 @Composable
 fun WasteDetailScreen(
-    wasteItem: WasteItem
+    wasteItem: WasteItem,
+    onBack: () -> Unit
 ) {
 
     Column(
@@ -24,18 +26,38 @@ fun WasteDetailScreen(
             style = MaterialTheme.typography.headlineMedium
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(
+            modifier = Modifier.height(16.dp)
+        )
 
         Text(
             text = "Kategori : ${wasteItem.category}"
+        )
+
+        Spacer(
+            modifier = Modifier.height(8.dp)
         )
 
         Text(
             text = "Berat : ${wasteItem.weight} Kg"
         )
 
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
+
         Text(
             text = "Estimasi Harga : Rp ${wasteItem.estimatedPrice}"
         )
+
+        Spacer(
+            modifier = Modifier.height(24.dp)
+        )
+
+        Button(
+            onClick = onBack
+        ) {
+            Text("Kembali")
+        }
     }
 }

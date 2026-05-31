@@ -7,14 +7,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.ky.bananacycles.component.WasteCard
 import com.ky.bananacycles.model.WasteItem
-import com.ky.bananacycles.ui.theme.BananaCyclesTheme
 
 @Composable
-fun MarketScreen() {
+fun MarketScreen(
+    onWasteClick: (WasteItem) -> Unit
+) {
 
     val wasteList = listOf(
         WasteItem(
@@ -48,7 +48,9 @@ fun MarketScreen() {
             style = MaterialTheme.typography.headlineMedium
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(
+            modifier = Modifier.height(16.dp)
+        )
 
         LazyColumn {
 
@@ -56,7 +58,9 @@ fun MarketScreen() {
 
                 WasteCard(
                     wasteItem = waste,
-                    onClick = {}
+                    onClick = {
+                        onWasteClick(waste)
+                    }
                 )
 
             }
@@ -64,12 +68,5 @@ fun MarketScreen() {
         }
 
     }
-}
 
-@Preview(showBackground = true)
-@Composable
-fun MarketScreenPreview() {
-    BananaCyclesTheme {
-        MarketScreen()
-    }
 }
