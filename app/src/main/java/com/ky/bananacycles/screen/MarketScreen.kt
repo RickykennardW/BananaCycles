@@ -4,8 +4,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.ky.bananacycles.component.WasteCard
@@ -16,26 +17,43 @@ fun MarketScreen(
     onWasteClick: (WasteItem) -> Unit
 ) {
 
+    var searchQuery by remember {
+        mutableStateOf("")
+    }
+
     val wasteList = listOf(
+
         WasteItem(
             wasteName = "Botol Plastik",
             category = "Anorganik",
             weight = 5.0,
             estimatedPrice = 25000
         ),
+
         WasteItem(
             wasteName = "Kardus Bekas",
             category = "Anorganik",
             weight = 10.0,
             estimatedPrice = 50000
         ),
+
         WasteItem(
             wasteName = "Daun Kering",
             category = "Organik",
             weight = 3.0,
             estimatedPrice = 6000
         )
+
     )
+
+    val filteredWasteList = wasteList.filter {
+
+        it.wasteName.contains(
+            searchQuery,
+            ignoreCase = true
+        )
+
+    }
 
     Column(
         modifier = Modifier
@@ -52,9 +70,24 @@ fun MarketScreen(
             modifier = Modifier.height(16.dp)
         )
 
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = {
+                searchQuery = it
+            },
+            label = {
+                Text("Cari Limbah")
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(
+            modifier = Modifier.height(16.dp)
+        )
+
         LazyColumn {
 
-            items(wasteList) { waste ->
+            items(filteredWasteList) { waste ->
 
                 WasteCard(
                     wasteItem = waste,
