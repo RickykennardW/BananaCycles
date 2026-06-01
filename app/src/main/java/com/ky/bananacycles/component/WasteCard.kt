@@ -16,7 +16,7 @@ fun WasteCard(
     wasteItem: WasteItem,
     onClick: () -> Unit
 ) {
-
+// Ini adalah comment
     Card(
         modifier = Modifier
             .fillMaxWidth()

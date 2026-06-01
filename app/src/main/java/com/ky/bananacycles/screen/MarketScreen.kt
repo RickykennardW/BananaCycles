@@ -29,7 +29,7 @@ import com.ky.bananacycles.repository.WasteRepository
 fun MarketScreen(
     onWasteClick: (WasteItem) -> Unit
 ) {
-
+// Ini adalah comment
     var searchQuery by remember {
         mutableStateOf("")
     }

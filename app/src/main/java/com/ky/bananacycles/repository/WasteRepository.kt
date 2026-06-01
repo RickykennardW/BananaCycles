@@ -6,7 +6,7 @@ import com.ky.bananacycles.model.WasteItem
 object WasteRepository {
 
     val wasteList = mutableStateListOf(
-
+// Ini adalah comment
         WasteItem(
             id = "1",
             wasteName = "Botol Plastik",
