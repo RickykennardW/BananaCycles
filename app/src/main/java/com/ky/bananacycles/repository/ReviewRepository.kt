@@ -10,7 +10,21 @@ object ReviewRepository {
     fun addReview(
         review: Review
     ) {
-        reviewList.add(review)
+
+        val alreadyReviewed =
+            reviewList.any {
+
+                it.wasteName ==
+                        review.wasteName
+
+            }
+
+        if (!alreadyReviewed) {
+
+            reviewList.add(review)
+
+        }
+
     }
 
     fun getTotalReview(): Int {
