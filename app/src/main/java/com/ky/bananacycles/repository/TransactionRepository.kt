@@ -42,4 +42,26 @@ object TransactionRepository {
 
     }
 
+    fun getTotalTransaction(): Int {
+
+        return transactionList.size
+
+    }
+
+    fun getTotalIncome(): Int {
+
+        return transactionList.sumOf {
+            it.price
+        }
+
+    }
+
+    fun getCompletedTransaction(): Int {
+
+        return transactionList.count {
+            it.status == "Selesai"
+        }
+
+    }
+
 }

@@ -13,4 +13,10 @@ object ReviewRepository {
         reviewList.add(review)
     }
 
+    fun getTotalReview(): Int {
+
+        return reviewList.size
+
+    }
+
 }
