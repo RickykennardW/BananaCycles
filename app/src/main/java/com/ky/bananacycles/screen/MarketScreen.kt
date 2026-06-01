@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.ky.bananacycles.component.WasteCard
 import com.ky.bananacycles.model.WasteItem
+import com.ky.bananacycles.repository.WasteRepository
 
 @Composable
 fun MarketScreen(
@@ -37,30 +38,7 @@ fun MarketScreen(
         mutableStateOf("Semua")
     }
 
-    val wasteList = listOf(
-
-        WasteItem(
-            wasteName = "Botol Plastik",
-            category = "Anorganik",
-            weight = 5.0,
-            estimatedPrice = 25000
-        ),
-
-        WasteItem(
-            wasteName = "Kardus Bekas",
-            category = "Anorganik",
-            weight = 10.0,
-            estimatedPrice = 50000
-        ),
-
-        WasteItem(
-            wasteName = "Daun Kering",
-            category = "Organik",
-            weight = 3.0,
-            estimatedPrice = 6000
-        )
-
-    )
+    val wasteList = WasteRepository.wasteList
 
     val filteredWasteList = wasteList.filter { waste ->
 
@@ -71,9 +49,19 @@ fun MarketScreen(
 
         val matchesCategory = when (selectedCategory) {
 
-            "Organik" -> waste.category == "Organik"
+            "Organik" -> {
+                waste.category.equals(
+                    "Organik",
+                    ignoreCase = true
+                )
+            }
 
-            "Anorganik" -> waste.category == "Anorganik"
+            "Anorganik" -> {
+                waste.category.equals(
+                    "Anorganik",
+                    ignoreCase = true
+                )
+            }
 
             else -> true
         }
@@ -152,16 +140,27 @@ fun MarketScreen(
             modifier = Modifier.height(16.dp)
         )
 
-        LazyColumn {
+        if (filteredWasteList.isEmpty()) {
 
-            items(filteredWasteList) { waste ->
+            Text(
+                text = "Belum ada limbah tersedia",
+                style = MaterialTheme.typography.bodyLarge
+            )
 
-                WasteCard(
-                    wasteItem = waste,
-                    onClick = {
-                        onWasteClick(waste)
-                    }
-                )
+        } else {
+
+            LazyColumn {
+
+                items(filteredWasteList) { waste ->
+
+                    WasteCard(
+                        wasteItem = waste,
+                        onClick = {
+                            onWasteClick(waste)
+                        }
+                    )
+
+                }
 
             }
 
