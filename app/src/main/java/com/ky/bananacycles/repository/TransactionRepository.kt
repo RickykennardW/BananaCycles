@@ -13,4 +13,33 @@ object TransactionRepository {
         transactionList.add(transaction)
     }
 
+    fun updateStatus(
+        transaction: Transaction
+    ) {
+
+        transaction.status = when (
+            transaction.status
+        ) {
+
+            "Pending" -> "Dijemput"
+
+            "Dijemput" -> "Selesai"
+
+            else -> "Selesai"
+        }
+
+        val index =
+            transactionList.indexOf(transaction)
+
+        if (index != -1) {
+
+            transactionList[index] =
+                transaction.copy(
+                    status = transaction.status
+                )
+
+        }
+
+    }
+
 }

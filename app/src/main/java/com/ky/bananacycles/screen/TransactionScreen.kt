@@ -3,6 +3,7 @@ package com.ky.bananacycles.screen
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -33,34 +34,89 @@ fun TransactionScreen() {
             modifier = Modifier.height(16.dp)
         )
 
-        LazyColumn {
+        if (transactions.isEmpty()) {
 
-            items(transactions) { transaction ->
+            Text(
+                text = "Belum ada transaksi"
+            )
 
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp),
-                    elevation = CardDefaults.cardElevation(
-                        defaultElevation = 4.dp
-                    )
-                ) {
+        } else {
 
-                    Column(
-                        modifier = Modifier.padding(16.dp)
+            LazyColumn {
+
+                items(transactions) { transaction ->
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        elevation = CardDefaults.cardElevation(
+                            defaultElevation = 4.dp
+                        )
                     ) {
 
-                        Text(
-                            text = transaction.wasteName
-                        )
+                        Column(
+                            modifier = Modifier.padding(
+                                16.dp
+                            )
+                        ) {
 
-                        Text(
-                            text = "Rp ${transaction.price}"
-                        )
+                            Text(
+                                text = transaction.wasteName
+                            )
 
-                        Text(
-                            text = "Status: ${transaction.status}"
-                        )
+                            Spacer(
+                                modifier = Modifier.height(
+                                    4.dp
+                                )
+                            )
+
+                            Text(
+                                text =
+                                    "Rp ${transaction.price}"
+                            )
+
+                            Spacer(
+                                modifier = Modifier.height(
+                                    4.dp
+                                )
+                            )
+
+                            Text(
+                                text =
+                                    "Status: ${transaction.status}"
+                            )
+
+                            Spacer(
+                                modifier = Modifier.height(
+                                    12.dp
+                                )
+                            )
+
+                            if (
+                                transaction.status != "Selesai"
+                            ) {
+
+                                Button(
+                                    onClick = {
+
+                                        TransactionRepository
+                                            .updateStatus(
+                                                transaction
+                                            )
+
+                                    }
+                                ) {
+
+                                    Text(
+                                        "Update Status"
+                                    )
+
+                                }
+
+                            }
+
+                        }
 
                     }
 
