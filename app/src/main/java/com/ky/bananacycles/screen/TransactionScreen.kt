@@ -11,6 +11,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.ky.bananacycles.model.Review
+import com.ky.bananacycles.repository.ReviewRepository
 import com.ky.bananacycles.repository.TransactionRepository
 
 @Composable
@@ -56,9 +58,7 @@ fun TransactionScreen() {
                     ) {
 
                         Column(
-                            modifier = Modifier.padding(
-                                16.dp
-                            )
+                            modifier = Modifier.padding(16.dp)
                         ) {
 
                             Text(
@@ -66,31 +66,23 @@ fun TransactionScreen() {
                             )
 
                             Spacer(
-                                modifier = Modifier.height(
-                                    4.dp
-                                )
+                                modifier = Modifier.height(4.dp)
                             )
 
                             Text(
-                                text =
-                                    "Rp ${transaction.price}"
+                                text = "Rp ${transaction.price}"
                             )
 
                             Spacer(
-                                modifier = Modifier.height(
-                                    4.dp
-                                )
+                                modifier = Modifier.height(4.dp)
                             )
 
                             Text(
-                                text =
-                                    "Status: ${transaction.status}"
+                                text = "Status: ${transaction.status}"
                             )
 
                             Spacer(
-                                modifier = Modifier.height(
-                                    12.dp
-                                )
+                                modifier = Modifier.height(12.dp)
                             )
 
                             if (
@@ -110,6 +102,49 @@ fun TransactionScreen() {
 
                                     Text(
                                         "Update Status"
+                                    )
+
+                                }
+
+                            }
+
+                            if (
+                                transaction.status == "Selesai"
+                            ) {
+
+                                Spacer(
+                                    modifier = Modifier.height(
+                                        8.dp
+                                    )
+                                )
+
+                                Button(
+                                    onClick = {
+
+                                        ReviewRepository
+                                            .addReview(
+
+                                                Review(
+                                                    id =
+                                                        System.currentTimeMillis()
+                                                            .toString(),
+
+                                                    wasteName =
+                                                        transaction.wasteName,
+
+                                                    rating = 5,
+
+                                                    comment =
+                                                        "Transaksi berjalan lancar"
+                                                )
+
+                                            )
+
+                                    }
+                                ) {
+
+                                    Text(
+                                        "Beri Review"
                                     )
 
                                 }
