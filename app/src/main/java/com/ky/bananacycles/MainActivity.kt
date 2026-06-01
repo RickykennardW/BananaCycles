@@ -8,8 +8,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import com.ky.bananacycles.auth.LoginScreen
@@ -17,9 +23,11 @@ import com.ky.bananacycles.auth.RegisterScreen
 import com.ky.bananacycles.model.WasteItem
 import com.ky.bananacycles.screen.AccountScreen
 import com.ky.bananacycles.screen.MarketScreen
+import com.ky.bananacycles.screen.TransactionScreen
 import com.ky.bananacycles.screen.UploadWasteScreen
 import com.ky.bananacycles.screen.WasteDetailScreen
 import com.ky.bananacycles.ui.theme.BananaCyclesTheme
+import androidx.compose.material.icons.automirrored.filled.List
 
 class MainActivity : ComponentActivity() {
 
@@ -82,7 +90,9 @@ class MainActivity : ComponentActivity() {
 
                                 NavigationBarItem(
                                     selected = selectedTab == 0,
-                                    onClick = { selectedTab = 0 },
+                                    onClick = {
+                                        selectedTab = 0
+                                    },
                                     icon = {
                                         Icon(
                                             Icons.Default.Home,
@@ -96,7 +106,9 @@ class MainActivity : ComponentActivity() {
 
                                 NavigationBarItem(
                                     selected = selectedTab == 1,
-                                    onClick = { selectedTab = 1 },
+                                    onClick = {
+                                        selectedTab = 1
+                                    },
                                     icon = {
                                         Icon(
                                             Icons.Default.ShoppingCart,
@@ -110,7 +122,25 @@ class MainActivity : ComponentActivity() {
 
                                 NavigationBarItem(
                                     selected = selectedTab == 2,
-                                    onClick = { selectedTab = 2 },
+                                    onClick = {
+                                        selectedTab = 2
+                                    },
+                                    icon = {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.List,
+                                            contentDescription = null
+                                        )
+                                    },
+                                    label = {
+                                        Text("Transaksi")
+                                    }
+                                )
+
+                                NavigationBarItem(
+                                    selected = selectedTab == 3,
+                                    onClick = {
+                                        selectedTab = 3
+                                    },
                                     icon = {
                                         Icon(
                                             Icons.Default.AccountCircle,
@@ -164,6 +194,12 @@ class MainActivity : ComponentActivity() {
                                 }
 
                                 selectedTab == 2 -> {
+
+                                    TransactionScreen()
+
+                                }
+
+                                selectedTab == 3 -> {
 
                                     AccountScreen()
 
