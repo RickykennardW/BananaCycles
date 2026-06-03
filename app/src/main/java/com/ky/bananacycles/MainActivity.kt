@@ -1,6 +1,7 @@
 package com.ky.bananacycles
 
 import android.os.Bundle
+import com.google.firebase.firestore.FirebaseFirestore
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -36,6 +37,31 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         enableEdgeToEdge()
+
+        // FIREBASE TEST
+        val db = FirebaseFirestore.getInstance()
+
+        val testData = hashMapOf(
+            "message" to "Hello Firebase",
+            "app" to "BananaCycles",
+            "timestamp" to System.currentTimeMillis()
+        )
+
+        db.collection("test")
+            .document("first")
+            .set(testData)
+            .addOnSuccessListener {
+                android.util.Log.d(
+                    "FIREBASE_TEST",
+                    "Firebase Connected Successfully"
+                )
+            }
+            .addOnFailureListener { e ->
+                android.util.Log.e(
+                    "FIREBASE_TEST",
+                    "Firebase Error: ${e.message}"
+                )
+            }
 
         setContent {
 
@@ -218,5 +244,4 @@ class MainActivity : ComponentActivity() {
         }
 
     }
-
 }
