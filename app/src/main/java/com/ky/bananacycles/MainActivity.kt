@@ -1,247 +1,211 @@
 package com.ky.bananacycles
 
 import android.os.Bundle
-import com.google.firebase.firestore.FirebaseFirestore
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import com.ky.bananacycles.auth.LoginScreen
-import com.ky.bananacycles.auth.RegisterScreen
-import com.ky.bananacycles.model.WasteItem
-import com.ky.bananacycles.screen.AccountScreen
-import com.ky.bananacycles.screen.MarketScreen
-import com.ky.bananacycles.screen.TransactionScreen
-import com.ky.bananacycles.screen.UploadWasteScreen
-import com.ky.bananacycles.screen.WasteDetailScreen
+import androidx.compose.ui.unit.dp
+import com.google.firebase.FirebaseApp
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
 import com.ky.bananacycles.ui.theme.BananaCyclesTheme
-import androidx.compose.material.icons.automirrored.filled.List
+
+private const val FIREBASE_TEST_TAG = "FIREBASE_TEST"
 
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
-
         super.onCreate(savedInstanceState)
-
         enableEdgeToEdge()
 
-        // FIREBASE TEST
-        val db = FirebaseFirestore.getInstance()
+        setContent {
+            BananaCyclesTheme {
+                FirebaseTestingScreen(
+                    onRunTest = { onResult ->
+                        runFirebaseTest(onResult)
+                    }
+                )
+            }
+        }
+    }
 
-        val testData = hashMapOf(
-            "message" to "Hello Firebase",
-            "app" to "BananaCycles",
-            "timestamp" to System.currentTimeMillis()
+    private fun runFirebaseTest(onResult: (FirebaseTestResult) -> Unit) {
+        onResult(
+            FirebaseTestResult(
+                title = "Testing Firebase...",
+                message = "Menulis data test ke Firestore."
+            )
         )
 
-        db.collection("test")
-            .document("first")
-            .set(testData)
-            .addOnSuccessListener {
-                android.util.Log.d(
-                    "FIREBASE_TEST",
-                    "Firebase Connected Successfully"
-                )
-            }
-            .addOnFailureListener { e ->
-                android.util.Log.e(
-                    "FIREBASE_TEST",
-                    "Firebase Error: ${e.message}"
-                )
-            }
+        try {
+            val app = FirebaseApp.getInstance()
+            val projectId = app.options.projectId ?: "project id tidak ditemukan"
+            val db = FirebaseFirestore.getInstance()
+            val testDocument = db.collection("firebase_test")
+                .document("main_activity_test")
 
-        setContent {
+            val testData = hashMapOf<String, Any>(
+                "message" to "Hello Firebase from BananaCycles",
+                "source" to "MainActivity testing screen",
+                "clientTimestamp" to System.currentTimeMillis(),
+                "serverTimestamp" to FieldValue.serverTimestamp()
+            )
 
-            BananaCyclesTheme {
+            testDocument
+                .set(testData)
+                .addOnSuccessListener {
+                    Log.d(FIREBASE_TEST_TAG, "Write success. Project: $projectId")
 
-                var isLoggedIn by remember {
-                    mutableStateOf(false)
-                }
-
-                var showRegister by remember {
-                    mutableStateOf(false)
-                }
-
-                if (!isLoggedIn) {
-
-                    if (showRegister) {
-
-                        RegisterScreen(
-                            onBackToLogin = {
-                                showRegister = false
-                            }
-                        )
-
-                    } else {
-
-                        LoginScreen(
-                            onLoginSuccess = {
-                                isLoggedIn = true
-                            },
-                            onRegisterClick = {
-                                showRegister = true
-                            }
-                        )
-
-                    }
-
-                } else {
-
-                    var selectedTab by remember {
-                        mutableStateOf(0)
-                    }
-
-                    var selectedWaste by remember {
-                        mutableStateOf<WasteItem?>(null)
-                    }
-
-                    Scaffold(
-
-                        bottomBar = {
-
-                            NavigationBar {
-
-                                NavigationBarItem(
-                                    selected = selectedTab == 0,
-                                    onClick = {
-                                        selectedTab = 0
-                                    },
-                                    icon = {
-                                        Icon(
-                                            Icons.Default.Home,
-                                            contentDescription = null
-                                        )
-                                    },
-                                    label = {
-                                        Text("Market")
-                                    }
+                    testDocument
+                        .get()
+                        .addOnSuccessListener { snapshot ->
+                            val savedMessage = snapshot.getString("message")
+                            Log.d(FIREBASE_TEST_TAG, "Read success: $savedMessage")
+                            onResult(
+                                FirebaseTestResult(
+                                    title = "Firebase berhasil terkoneksi",
+                                    message = "Write dan read Firestore sukses.",
+                                    detail = "Project: $projectId\nCollection: firebase_test\nDocument: main_activity_test\nMessage: $savedMessage"
                                 )
-
-                                NavigationBarItem(
-                                    selected = selectedTab == 1,
-                                    onClick = {
-                                        selectedTab = 1
-                                    },
-                                    icon = {
-                                        Icon(
-                                            Icons.Default.ShoppingCart,
-                                            contentDescription = null
-                                        )
-                                    },
-                                    label = {
-                                        Text("Sell")
-                                    }
-                                )
-
-                                NavigationBarItem(
-                                    selected = selectedTab == 2,
-                                    onClick = {
-                                        selectedTab = 2
-                                    },
-                                    icon = {
-                                        Icon(
-                                            Icons.AutoMirrored.Filled.List,
-                                            contentDescription = null
-                                        )
-                                    },
-                                    label = {
-                                        Text("Transaksi")
-                                    }
-                                )
-
-                                NavigationBarItem(
-                                    selected = selectedTab == 3,
-                                    onClick = {
-                                        selectedTab = 3
-                                    },
-                                    icon = {
-                                        Icon(
-                                            Icons.Default.AccountCircle,
-                                            contentDescription = null
-                                        )
-                                    },
-                                    label = {
-                                        Text("Account")
-                                    }
-                                )
-
-                            }
-
-                        }
-
-                    ) { paddingValues ->
-
-                        Surface(
-                            modifier = Modifier.padding(
-                                paddingValues
                             )
-                        ) {
-
-                            when {
-
-                                selectedWaste != null -> {
-
-                                    WasteDetailScreen(
-                                        wasteItem = selectedWaste!!,
-                                        onBack = {
-                                            selectedWaste = null
-                                        }
-                                    )
-
-                                }
-
-                                selectedTab == 0 -> {
-
-                                    MarketScreen(
-                                        onWasteClick = { waste ->
-                                            selectedWaste = waste
-                                        }
-                                    )
-
-                                }
-
-                                selectedTab == 1 -> {
-
-                                    UploadWasteScreen()
-
-                                }
-
-                                selectedTab == 2 -> {
-
-                                    TransactionScreen()
-
-                                }
-
-                                selectedTab == 3 -> {
-
-                                    AccountScreen()
-
-                                }
-
-                            }
-
                         }
-
-                    }
-
+                        .addOnFailureListener { error ->
+                            Log.e(FIREBASE_TEST_TAG, "Read failed", error)
+                            onResult(
+                                FirebaseTestResult(
+                                    title = "Write sukses, read gagal",
+                                    message = error.message ?: "Firestore read gagal tanpa pesan error.",
+                                    detail = "Project: $projectId"
+                                )
+                            )
+                        }
                 }
-
-            }
-
+                .addOnFailureListener { error ->
+                    Log.e(FIREBASE_TEST_TAG, "Write failed", error)
+                    onResult(
+                        FirebaseTestResult(
+                            title = "Firebase gagal terkoneksi",
+                            message = error.message ?: "Firestore write gagal tanpa pesan error.",
+                            detail = "Cek google-services.json, koneksi internet, dan Firestore rules."
+                        )
+                    )
+                }
+        } catch (error: Exception) {
+            Log.e(FIREBASE_TEST_TAG, "Firebase test crashed", error)
+            onResult(
+                FirebaseTestResult(
+                    title = "Firebase belum siap",
+                    message = error.message ?: "Firebase gagal diinisialisasi.",
+                    detail = "Pastikan google-services.json sesuai package com.ky.bananacycles."
+                )
+            )
         }
-
     }
 }
+
+@Composable
+private fun FirebaseTestingScreen(
+    onRunTest: ((FirebaseTestResult) -> Unit) -> Unit
+) {
+    var result by remember {
+        mutableStateOf(
+            FirebaseTestResult(
+                title = "Firebase Test",
+                message = "Menunggu test dijalankan."
+            )
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        onRunTest { result = it }
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "BananaCycles Firebase Test",
+                style = MaterialTheme.typography.headlineSmall
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = result.title,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = result.message,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    result.detail?.let { detail ->
+                        Text(
+                            text = detail,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Button(
+                    onClick = {
+                        onRunTest { result = it }
+                    }
+                ) {
+                    Text("Test Lagi")
+                }
+            }
+        }
+    }
+}
+
+private data class FirebaseTestResult(
+    val title: String,
+    val message: String,
+    val detail: String? = null
+)
