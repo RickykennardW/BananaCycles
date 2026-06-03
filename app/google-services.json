@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "710272232901",
+    "project_id": "softwareenginering-750e8",
+    "storage_bucket": "softwareenginering-750e8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:710272232901:android:9927d0877ec92173f1afac",
+        "android_client_info": {
+          "package_name": "com.ky.bananacycles"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCITqLf43fGFB5LoH_eyLhMtPSxdyk6qMU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
