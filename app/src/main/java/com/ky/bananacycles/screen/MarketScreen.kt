@@ -37,7 +37,7 @@ fun MarketScreen(
     }
 
     var selectedCategory by remember {
-        mutableStateOf("Semua")
+        mutableStateOf("All")
     }
 
     val uiState = viewModel.uiState
@@ -55,18 +55,12 @@ fun MarketScreen(
 
         val matchesCategory = when (selectedCategory) {
 
-            "Organik" -> {
-                waste.category.equals(
-                    "Organik",
-                    ignoreCase = true
-                )
+            "Organic" -> {
+                waste.category.isOrganicCategory()
             }
 
-            "Anorganik" -> {
-                waste.category.equals(
-                    "Anorganik",
-                    ignoreCase = true
-                )
+            "Inorganic" -> {
+                waste.category.isInorganicCategory()
             }
 
             else -> true
@@ -96,7 +90,7 @@ fun MarketScreen(
                 searchQuery = it
             },
             label = {
-                Text("Cari Limbah")
+                Text("Search Waste")
             },
             modifier = Modifier.fillMaxWidth()
         )
@@ -111,32 +105,32 @@ fun MarketScreen(
         ) {
 
             FilterChip(
-                selected = selectedCategory == "Semua",
+                selected = selectedCategory == "All",
                 onClick = {
-                    selectedCategory = "Semua"
+                    selectedCategory = "All"
                 },
                 label = {
-                    Text("Semua")
+                    Text("All")
                 }
             )
 
             FilterChip(
-                selected = selectedCategory == "Organik",
+                selected = selectedCategory == "Organic",
                 onClick = {
-                    selectedCategory = "Organik"
+                    selectedCategory = "Organic"
                 },
                 label = {
-                    Text("Organik")
+                    Text("Organic")
                 }
             )
 
             FilterChip(
-                selected = selectedCategory == "Anorganik",
+                selected = selectedCategory == "Inorganic",
                 onClick = {
-                    selectedCategory = "Anorganik"
+                    selectedCategory = "Inorganic"
                 },
                 label = {
-                    Text("Anorganik")
+                    Text("Inorganic")
                 }
             )
 
@@ -165,7 +159,7 @@ fun MarketScreen(
         } else if (filteredWasteList.isEmpty()) {
 
             Text(
-                text = "Belum ada limbah tersedia",
+                text = "No waste listings are available.",
                 style = MaterialTheme.typography.bodyLarge
             )
 
@@ -195,4 +189,14 @@ fun MarketScreen(
 
     }
 
+}
+
+private fun String.isOrganicCategory(): Boolean {
+    return equals("Organic", ignoreCase = true) ||
+        equals("Organik", ignoreCase = true)
+}
+
+private fun String.isInorganicCategory(): Boolean {
+    return equals("Inorganic", ignoreCase = true) ||
+        equals("Anorganik", ignoreCase = true)
 }

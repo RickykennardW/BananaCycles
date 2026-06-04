@@ -46,7 +46,7 @@ fun AccountScreen(
     ) {
 
         Text(
-            text = "Dashboard Saya",
+            text = "My Dashboard",
             style = MaterialTheme.typography.headlineMedium
         )
 
@@ -55,22 +55,22 @@ fun AccountScreen(
         )
 
         DashboardCard(
-            title = "Total Transaksi",
+            title = "Total Orders",
             value = totalTransaction.toString()
         )
 
         DashboardCard(
-            title = "Total Pendapatan",
-            value = "Rp $totalIncome"
+            title = "Total Income",
+            value = "IDR $totalIncome"
         )
 
         DashboardCard(
-            title = "Transaksi Selesai",
+            title = "Completed Orders",
             value = completedTransaction.toString()
         )
 
         DashboardCard(
-            title = "Total Review",
+            title = "Total Reviews",
             value = totalReview.toString()
         )
 

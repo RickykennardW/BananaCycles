@@ -36,12 +36,12 @@ fun TransactionScreen() {
             )
 
             Text(
-                text = "Transactions",
+                text = "Orders",
                 style = MaterialTheme.typography.headlineMedium
             )
 
             Text(
-                text = "Transaction feature coming soon",
+                text = "Order feature coming soon",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

@@ -16,7 +16,6 @@ fun WasteCard(
     wasteItem: WasteItem,
     onClick: () -> Unit
 ) {
-// Ini adalah comment
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -41,19 +40,27 @@ fun WasteCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Kategori: ${wasteItem.category}"
+                text = "Category: ${wasteItem.category.toDisplayCategory()}"
             )
 
             Text(
-                text = "Berat: ${wasteItem.weight} Kg"
+                text = "Weight: ${wasteItem.weight} kg"
             )
 
             Text(
-                text = "Rp ${wasteItem.estimatedPrice}"
+                text = "IDR ${wasteItem.estimatedPrice}"
             )
 
         }
 
     }
 
+}
+
+private fun String.toDisplayCategory(): String {
+    return when {
+        equals("Organik", ignoreCase = true) -> "Organic"
+        equals("Anorganik", ignoreCase = true) -> "Inorganic"
+        else -> this
+    }
 }

@@ -21,11 +21,11 @@ object TransactionRepository {
             transaction.status
         ) {
 
-            "Pending" -> "Dijemput"
+            "Pending" -> "Picked Up"
 
-            "Dijemput" -> "Selesai"
+            "Picked Up" -> "Completed"
 
-            else -> "Selesai"
+            else -> "Completed"
         }
 
         val index =
@@ -59,7 +59,7 @@ object TransactionRepository {
     fun getCompletedTransaction(): Int {
 
         return transactionList.count {
-            it.status == "Selesai"
+            it.status == "Completed"
         }
 
     }

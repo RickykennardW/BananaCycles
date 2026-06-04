@@ -54,12 +54,12 @@ fun UploadWasteScreen(
     }
 
     val categories = listOf(
-        "Organik",
-        "Anorganik"
+        "Organic",
+        "Inorganic"
     )
 
     var selectedCategory by remember {
-        mutableStateOf("Organik")
+        mutableStateOf("Organic")
     }
 
     var expanded by remember {
@@ -85,8 +85,8 @@ fun UploadWasteScreen(
         val weightValue = weight.toDoubleOrNull() ?: 0.0
 
         val pricePerKg = when (selectedCategory) {
-            "Organik" -> 2000
-            "Anorganik" -> 5000
+            "Organic" -> 2000
+            "Inorganic" -> 5000
             else -> 0
         }
 
@@ -108,10 +108,10 @@ fun UploadWasteScreen(
                 }
             },
             title = {
-                Text("Input Tidak Valid")
+                Text("Invalid Input")
             },
             text = {
-                Text("Nama limbah tidak boleh kosong dan berat harus lebih dari 0 Kg.")
+                Text("Please enter a waste name and a valid weight greater than 0 kg.")
             }
         )
     }
@@ -129,7 +129,7 @@ fun UploadWasteScreen(
             item {
                 Column {
                     Text(
-                        text = "My Listings",
+                        text = "Sell Waste",
                         style = MaterialTheme.typography.headlineMedium
                     )
 
@@ -138,7 +138,7 @@ fun UploadWasteScreen(
                     )
 
                     Text(
-                        text = "Upload dan kelola limbah yang Anda jual",
+                        text = "Create and manage your waste listings",
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -154,7 +154,7 @@ fun UploadWasteScreen(
                             wasteName = it
                         },
                         label = {
-                            Text("Nama Limbah")
+                            Text("Waste Name")
                         },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
@@ -172,7 +172,7 @@ fun UploadWasteScreen(
                             onValueChange = {},
                             readOnly = true,
                             label = {
-                                Text("Kategori")
+                                Text("Category")
                             },
                             trailingIcon = {
                                 ExposedDropdownMenuDefaults.TrailingIcon(
@@ -217,7 +217,7 @@ fun UploadWasteScreen(
                             }
                         },
                         label = {
-                            Text("Berat (Kg)")
+                            Text("Weight (kg)")
                         },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
@@ -241,7 +241,7 @@ fun UploadWasteScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "Estimasi Harga"
+                                text = "Estimated Price"
                             )
 
                             Spacer(
@@ -249,7 +249,7 @@ fun UploadWasteScreen(
                             )
 
                             Text(
-                                text = "Rp $estimatedPrice",
+                                text = "IDR $estimatedPrice",
                                 style = MaterialTheme.typography.headlineSmall
                             )
                         }
@@ -273,7 +273,7 @@ fun UploadWasteScreen(
                                     onSuccess = {
                                         Toast.makeText(
                                             context,
-                                            "Limbah berhasil diupload",
+                                            "Waste listing created successfully.",
                                             Toast.LENGTH_SHORT
                                         ).show()
 
@@ -303,7 +303,7 @@ fun UploadWasteScreen(
                             )
                         } else {
                             Text(
-                                text = "Upload Limbah"
+                                text = "Sell Waste"
                             )
                         }
                     }
@@ -312,7 +312,7 @@ fun UploadWasteScreen(
 
             item {
                 Text(
-                    text = "Listing Saya",
+                    text = "My Waste Listings",
                     style = MaterialTheme.typography.titleLarge
                 )
             }
@@ -324,7 +324,7 @@ fun UploadWasteScreen(
             } else if (uiState.myListings.isEmpty()) {
                 item {
                     Text(
-                        text = "Anda belum mengupload listing.",
+                        text = "You have not created any waste listings yet.",
                         style = MaterialTheme.typography.bodyLarge
                     )
                 }

@@ -37,7 +37,7 @@ fun WasteDetailScreen(
         )
 
         Text(
-            text = "Kategori : ${wasteItem.category}"
+            text = "Category: ${wasteItem.category.toDisplayCategory()}"
         )
 
         Spacer(
@@ -45,7 +45,7 @@ fun WasteDetailScreen(
         )
 
         Text(
-            text = "Berat : ${wasteItem.weight} Kg"
+            text = "Weight: ${wasteItem.weight} kg"
         )
 
         Spacer(
@@ -53,7 +53,7 @@ fun WasteDetailScreen(
         )
 
         Text(
-            text = "Estimasi Harga : Rp ${wasteItem.estimatedPrice}"
+            text = "Estimated Price: IDR ${wasteItem.estimatedPrice}"
         )
 
         Spacer(
@@ -76,7 +76,7 @@ fun WasteDetailScreen(
 
                 Toast.makeText(
                     context,
-                    "Transaksi COD berhasil dibuat",
+                    "COD order created successfully.",
                     Toast.LENGTH_SHORT
                 ).show()
 
@@ -84,7 +84,7 @@ fun WasteDetailScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
 
-            Text("Beli (COD)")
+            Text("Buy (COD)")
 
         }
 
@@ -97,10 +97,18 @@ fun WasteDetailScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
 
-            Text("Kembali")
+            Text("Back")
 
         }
 
     }
 
+}
+
+private fun String.toDisplayCategory(): String {
+    return when {
+        equals("Organik", ignoreCase = true) -> "Organic"
+        equals("Anorganik", ignoreCase = true) -> "Inorganic"
+        else -> this
+    }
 }

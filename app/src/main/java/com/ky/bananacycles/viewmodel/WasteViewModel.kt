@@ -37,7 +37,7 @@ class WasteViewModel(
             uiState = uiState.copy(
                 marketListings = emptyList(),
                 isMarketLoading = false,
-                errorMessage = "User belum login."
+                errorMessage = "User is not signed in."
             )
             return
         }
@@ -61,7 +61,7 @@ class WasteViewModel(
                 uiState = uiState.copy(
                     isMarketLoading = false,
                     errorMessage = error.localizedMessage
-                        ?: "Gagal memuat marketplace."
+                        ?: "Failed to load the marketplace."
                 )
             }
         )
@@ -75,7 +75,7 @@ class WasteViewModel(
             uiState = uiState.copy(
                 myListings = emptyList(),
                 isMyListingsLoading = false,
-                errorMessage = "User belum login."
+                errorMessage = "User is not signed in."
             )
             return
         }
@@ -99,7 +99,7 @@ class WasteViewModel(
                 uiState = uiState.copy(
                     isMyListingsLoading = false,
                     errorMessage = error.localizedMessage
-                        ?: "Gagal memuat listing Anda."
+                        ?: "Failed to load your waste listings."
                 )
             }
         )
@@ -116,7 +116,7 @@ class WasteViewModel(
         val currentUserId = auth.currentUser?.uid
 
         if (currentUserId.isNullOrBlank()) {
-            onFailure("User belum login.")
+            onFailure("User is not signed in.")
             return
         }
 
@@ -137,7 +137,7 @@ class WasteViewModel(
             },
             onFailure = { error ->
                 val message = error.localizedMessage
-                    ?: "Gagal mengupload listing."
+                    ?: "Failed to create the waste listing."
 
                 uiState = uiState.copy(
                     isUploading = false,

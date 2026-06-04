@@ -108,7 +108,7 @@ fun RegisterScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Daftar untuk mulai memakai BananaCycles",
+                        text = "Create an account to start using BananaCycles",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -257,7 +257,7 @@ fun RegisterScreen(
                                 } else {
                                     isLoading = false
                                     errorMessage = task.exception?.localizedMessage
-                                        ?: "Register gagal. Coba lagi beberapa saat."
+                                        ?: "Registration failed. Please try again later."
                                 }
                             }
                     },
@@ -279,7 +279,7 @@ fun RegisterScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Sudah punya akun?",
+                        text = "Already have an account?",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     TextButton(
@@ -319,13 +319,13 @@ private fun validateRegisterInput(
     confirmPassword: String
 ): String? {
     return when {
-        fullName.isBlank() -> "Full name wajib diisi."
-        email.isBlank() -> "Email wajib diisi."
-        !Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() -> "Format email tidak valid."
-        password.isBlank() -> "Password wajib diisi."
-        password.length < 6 -> "Password minimal 6 karakter."
-        confirmPassword.isBlank() -> "Confirm password wajib diisi."
-        password != confirmPassword -> "Password dan confirm password harus sama."
+        fullName.isBlank() -> "Full name is required."
+        email.isBlank() -> "Email is required."
+        !Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() -> "Please enter a valid email address."
+        password.isBlank() -> "Password is required."
+        password.length < 6 -> "Password must be at least 6 characters."
+        confirmPassword.isBlank() -> "Confirm password is required."
+        password != confirmPassword -> "Password and confirm password must match."
         else -> null
     }
 }

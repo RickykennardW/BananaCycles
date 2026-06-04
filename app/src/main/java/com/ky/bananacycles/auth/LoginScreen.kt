@@ -100,7 +100,7 @@ fun LoginScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Masuk untuk melanjutkan BananaCycles",
+                        text = "Sign in to continue to BananaCycles",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -186,7 +186,7 @@ fun LoginScreen(
                                     onLoginSuccess()
                                 } else {
                                     errorMessage = task.exception?.localizedMessage
-                                        ?: "Login gagal. Periksa email dan password."
+                                        ?: "Login failed. Please check your email and password."
                                 }
                             }
                     },
@@ -208,7 +208,7 @@ fun LoginScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Belum punya akun?",
+                        text = "Don't have an account?",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     TextButton(
@@ -246,9 +246,9 @@ private fun validateLoginInput(
     password: String
 ): String? {
     return when {
-        email.isBlank() -> "Email wajib diisi."
-        !Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() -> "Format email tidak valid."
-        password.isBlank() -> "Password wajib diisi."
+        email.isBlank() -> "Email is required."
+        !Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() -> "Please enter a valid email address."
+        password.isBlank() -> "Password is required."
         else -> null
     }
 }

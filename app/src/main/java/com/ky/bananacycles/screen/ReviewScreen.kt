@@ -25,7 +25,7 @@ fun ReviewScreen() {
     ) {
 
         Text(
-            text = "Review & Rating",
+            text = "Reviews & Ratings",
             style = MaterialTheme.typography.headlineMedium
         )
 
@@ -36,7 +36,7 @@ fun ReviewScreen() {
         if (reviews.isEmpty()) {
 
             Text(
-                text = "Belum ada review"
+                text = "No reviews yet."
             )
 
         } else {
