@@ -1,9 +1,7 @@
 package com.ky.bananacycles.component
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -33,21 +31,9 @@ fun WasteCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                    .padding(16.dp)
-            ) {
-                Text(
-                    text = "Image placeholder",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            ListingImage(
+                imageUrl = wasteItem.imageUrl
+            )
 
             Spacer(modifier = Modifier.height(12.dp))
 
