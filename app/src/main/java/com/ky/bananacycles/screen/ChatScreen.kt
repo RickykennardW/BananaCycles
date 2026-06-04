@@ -1,5 +1,6 @@
 package com.ky.bananacycles.screen
 
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,16 +41,25 @@ fun ChatScreen() {
 
         firestore
             .collection("chats")
-            .get()
-            .addOnSuccessListener { documents ->
+            .addSnapshotListener { snapshot, error ->
 
-                val loadedMessages =
-                    documents.toObjects(ChatMessage::class.java)
+                if (error != null) {
+                    return@addSnapshotListener
+                }
 
-                chatMessages =
-                    loadedMessages.sortedBy {
-                        it.timestamp
-                    }
+                if (snapshot != null) {
+
+                    val loadedMessages =
+                        snapshot.toObjects(
+                            ChatMessage::class.java
+                        )
+
+                    chatMessages =
+                        loadedMessages.sortedBy {
+                            it.timestamp
+                        }
+
+                }
 
             }
 
@@ -131,14 +141,8 @@ fun ChatScreen() {
                             .collection("chats")
                             .document(newMessage.id)
                             .set(newMessage)
-                            .addOnSuccessListener {
 
-                                chatMessages =
-                                    chatMessages + newMessage
-
-                                messageText = ""
-
-                            }
+                        messageText = ""
 
                     }
 
