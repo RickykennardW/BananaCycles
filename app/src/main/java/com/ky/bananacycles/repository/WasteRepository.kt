@@ -8,22 +8,73 @@ class WasteRepository(
     private val service: WasteFirestoreService = WasteFirestoreService()
 ) {
 
-    // Repository keeps Firebase details out of composables and ViewModel callers.
     fun addListing(
+        sellerId: String,
+        sellerName: String,
         wasteName: String,
         category: String,
-        weight: Double,
-        estimatedPrice: Int,
-        sellerId: String,
+        stockKg: Double,
+        pricePerKg: Int,
+        imageUrl: String,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
     ) {
         service.addListing(
+            sellerId = sellerId,
+            sellerName = sellerName,
             wasteName = wasteName,
             category = category,
-            weight = weight,
-            estimatedPrice = estimatedPrice,
-            sellerId = sellerId,
+            stockKg = stockKg,
+            pricePerKg = pricePerKg,
+            imageUrl = imageUrl,
+            onSuccess = onSuccess,
+            onFailure = onFailure
+        )
+    }
+
+    fun updateListing(
+        listingId: String,
+        wasteName: String,
+        category: String,
+        stockKg: Double,
+        pricePerKg: Int,
+        imageUrl: String,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        service.updateListing(
+            listingId = listingId,
+            wasteName = wasteName,
+            category = category,
+            stockKg = stockKg,
+            pricePerKg = pricePerKg,
+            imageUrl = imageUrl,
+            onSuccess = onSuccess,
+            onFailure = onFailure
+        )
+    }
+
+    fun deleteListing(
+        listingId: String,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        service.deleteListing(
+            listingId = listingId,
+            onSuccess = onSuccess,
+            onFailure = onFailure
+        )
+    }
+
+    fun purchaseListing(
+        listingId: String,
+        quantityKg: Double,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        service.purchaseListing(
+            listingId = listingId,
+            quantityKg = quantityKg,
             onSuccess = onSuccess,
             onFailure = onFailure
         )

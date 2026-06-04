@@ -14,7 +14,8 @@ data class WasteUiState(
     val myListings: List<WasteItem> = emptyList(),
     val isMarketLoading: Boolean = false,
     val isMyListingsLoading: Boolean = false,
-    val isUploading: Boolean = false,
+    val isSaving: Boolean = false,
+    val isPurchasing: Boolean = false,
     val errorMessage: String? = null
 )
 
@@ -29,7 +30,6 @@ class WasteViewModel(
     private var marketListener: ListenerRegistration? = null
     private var myListingsListener: ListenerRegistration? = null
 
-    // Market listens to all Listings, then excludes listings owned by the current user.
     fun loadMarketListings() {
         val currentUserId = auth.currentUser?.uid
 
@@ -67,7 +67,6 @@ class WasteViewModel(
         )
     }
 
-    // My Listings uses a sellerId query so users only see their own uploads here.
     fun loadMyListings() {
         val currentUserId = auth.currentUser?.uid
 
@@ -108,12 +107,14 @@ class WasteViewModel(
     fun addListing(
         wasteName: String,
         category: String,
-        weight: Double,
-        estimatedPrice: Int,
+        stockKg: Double,
+        pricePerKg: Int,
+        imageUrl: String,
         onSuccess: () -> Unit,
         onFailure: (String) -> Unit
     ) {
-        val currentUserId = auth.currentUser?.uid
+        val currentUser = auth.currentUser
+        val currentUserId = currentUser?.uid
 
         if (currentUserId.isNullOrBlank()) {
             onFailure("User is not signed in.")
@@ -121,29 +122,131 @@ class WasteViewModel(
         }
 
         uiState = uiState.copy(
-            isUploading = true,
+            isSaving = true,
             errorMessage = null
         )
 
         repository.addListing(
+            sellerId = currentUserId,
+            sellerName = currentUser.displayName
+                ?: currentUser.email
+                ?: "BananaCycles Seller",
             wasteName = wasteName,
             category = category,
-            weight = weight,
-            estimatedPrice = estimatedPrice,
-            sellerId = currentUserId,
+            stockKg = stockKg,
+            pricePerKg = pricePerKg,
+            imageUrl = imageUrl,
             onSuccess = {
-                uiState = uiState.copy(isUploading = false)
+                uiState = uiState.copy(isSaving = false)
                 onSuccess()
             },
             onFailure = { error ->
-                val message = error.localizedMessage
-                    ?: "Failed to create the waste listing."
-
-                uiState = uiState.copy(
-                    isUploading = false,
-                    errorMessage = message
+                handleFailure(
+                    fallbackMessage = "Failed to create the waste listing.",
+                    error = error,
+                    onFailure = onFailure
                 )
-                onFailure(message)
+            }
+        )
+    }
+
+    fun updateListing(
+        listingId: String,
+        wasteName: String,
+        category: String,
+        stockKg: Double,
+        pricePerKg: Int,
+        imageUrl: String,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ) {
+        uiState = uiState.copy(
+            isSaving = true,
+            errorMessage = null
+        )
+
+        repository.updateListing(
+            listingId = listingId,
+            wasteName = wasteName,
+            category = category,
+            stockKg = stockKg,
+            pricePerKg = pricePerKg,
+            imageUrl = imageUrl,
+            onSuccess = {
+                uiState = uiState.copy(isSaving = false)
+                onSuccess()
+            },
+            onFailure = { error ->
+                handleFailure(
+                    fallbackMessage = "Failed to update the waste listing.",
+                    error = error,
+                    onFailure = onFailure
+                )
+            }
+        )
+    }
+
+    fun deleteListing(
+        listingId: String,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ) {
+        uiState = uiState.copy(
+            isSaving = true,
+            errorMessage = null
+        )
+
+        repository.deleteListing(
+            listingId = listingId,
+            onSuccess = {
+                uiState = uiState.copy(isSaving = false)
+                onSuccess()
+            },
+            onFailure = { error ->
+                handleFailure(
+                    fallbackMessage = "Failed to delete the waste listing.",
+                    error = error,
+                    onFailure = onFailure
+                )
+            }
+        )
+    }
+
+    fun purchaseListing(
+        listing: WasteItem,
+        quantityKg: Double,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ) {
+        if (quantityKg <= 0.0) {
+            onFailure("Please enter a purchase quantity greater than 0 kg.")
+            return
+        }
+
+        if (quantityKg > listing.stockKg) {
+            onFailure("Purchase quantity cannot exceed available stock.")
+            return
+        }
+
+        uiState = uiState.copy(
+            isPurchasing = true,
+            errorMessage = null
+        )
+
+        repository.purchaseListing(
+            listingId = listing.id,
+            quantityKg = quantityKg,
+            onSuccess = {
+                uiState = uiState.copy(isPurchasing = false)
+                onSuccess()
+            },
+            onFailure = { error ->
+                handleFailure(
+                    fallbackMessage = "Failed to complete the purchase.",
+                    error = error,
+                    onFailure = onFailure,
+                    isPurchaseFailure = true
+                )
             }
         )
     }
@@ -154,6 +257,29 @@ class WasteViewModel(
         marketListener = null
         myListingsListener = null
         uiState = WasteUiState()
+    }
+
+    private fun handleFailure(
+        fallbackMessage: String,
+        error: Exception,
+        onFailure: (String) -> Unit,
+        isPurchaseFailure: Boolean = false
+    ) {
+        val message = error.localizedMessage ?: fallbackMessage
+
+        uiState = if (isPurchaseFailure) {
+            uiState.copy(
+                isPurchasing = false,
+                errorMessage = message
+            )
+        } else {
+            uiState.copy(
+                isSaving = false,
+                errorMessage = message
+            )
+        }
+
+        onFailure(message)
     }
 
     override fun onCleared() {

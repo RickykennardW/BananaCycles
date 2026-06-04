@@ -1,13 +1,17 @@
 package com.ky.bananacycles.screen
 
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,9 +25,13 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,39 +46,32 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.ky.bananacycles.component.WasteCard
+import com.ky.bananacycles.model.ListingStatus
+import com.ky.bananacycles.model.WasteItem
 import com.ky.bananacycles.viewmodel.WasteViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+private enum class SellFilter(
+    val label: String
+) {
+    ALL("All"),
+    ACTIVE("Active"),
+    SOLD_OUT("Sold Out"),
+    PENDING("Pending")
+}
+
 @Composable
 fun UploadWasteScreen(
     viewModel: WasteViewModel
 ) {
     val context = LocalContext.current
     val uiState = viewModel.uiState
-
-    var wasteName by remember {
-        mutableStateOf("")
+    var selectedFilter by remember {
+        mutableStateOf(SellFilter.ALL)
     }
-
-    val categories = listOf(
-        "Organic",
-        "Inorganic"
-    )
-
-    var selectedCategory by remember {
-        mutableStateOf("Organic")
+    var editingListing by remember {
+        mutableStateOf<WasteItem?>(null)
     }
-
-    var expanded by remember {
-        mutableStateOf(false)
-    }
-
-    var weight by remember {
-        mutableStateOf("")
-    }
-
-    var showErrorDialog by remember {
+    var isFormOpen by remember {
         mutableStateOf(false)
     }
 
@@ -78,269 +79,470 @@ fun UploadWasteScreen(
         viewModel.loadMyListings()
     }
 
-    val estimatedPrice = remember(
-        selectedCategory,
-        weight
-    ) {
-        val weightValue = weight.toDoubleOrNull() ?: 0.0
-
-        val pricePerKg = when (selectedCategory) {
-            "Organic" -> 2000
-            "Inorganic" -> 5000
-            else -> 0
+    val filteredListings = uiState.myListings.filter { listing ->
+        when (selectedFilter) {
+            SellFilter.ALL -> true
+            SellFilter.ACTIVE -> listing.status == ListingStatus.ACTIVE.name
+            SellFilter.SOLD_OUT -> listing.status == ListingStatus.SOLD_OUT.name
+            SellFilter.PENDING -> listing.status == ListingStatus.PENDING.name
         }
-
-        (weightValue * pricePerKg).toInt()
     }
 
-    if (showErrorDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                showErrorDialog = false
+    if (isFormOpen) {
+        ListingFormDialog(
+            initialListing = editingListing,
+            isSaving = uiState.isSaving,
+            onDismiss = {
+                isFormOpen = false
+                editingListing = null
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showErrorDialog = false
-                    }
-                ) {
-                    Text("OK")
+            onSave = { form ->
+                val onSuccess = {
+                    Toast.makeText(
+                        context,
+                        if (editingListing == null) {
+                            "Waste listing created successfully."
+                        } else {
+                            "Waste listing updated successfully."
+                        },
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    isFormOpen = false
+                    editingListing = null
                 }
-            },
-            title = {
-                Text("Invalid Input")
-            },
-            text = {
-                Text("Please enter a waste name and a valid weight greater than 0 kg.")
+
+                val onFailure: (String) -> Unit = { message ->
+                    Toast.makeText(
+                        context,
+                        message,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+
+                val listing = editingListing
+                if (listing == null) {
+                    viewModel.addListing(
+                        wasteName = form.wasteName,
+                        category = form.category,
+                        stockKg = form.stockKg,
+                        pricePerKg = form.pricePerKg,
+                        imageUrl = form.imageUrl,
+                        onSuccess = onSuccess,
+                        onFailure = onFailure
+                    )
+                } else {
+                    viewModel.updateListing(
+                        listingId = listing.id,
+                        wasteName = form.wasteName,
+                        category = form.category,
+                        stockKg = form.stockKg,
+                        pricePerKg = form.pricePerKg,
+                        imageUrl = form.imageUrl,
+                        onSuccess = onSuccess,
+                        onFailure = onFailure
+                    )
+                }
             }
         )
     }
 
-    Surface(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 20.dp)
-                .padding(top = 50.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                Column {
-                    Text(
-                        text = "Sell Waste",
-                        style = MaterialTheme.typography.headlineMedium
-                    )
-
-                    Spacer(
-                        modifier = Modifier.height(6.dp)
-                    )
-
-                    Text(
-                        text = "Create and manage your waste listings",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+    Scaffold(
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = {
+                    editingListing = null
+                    isFormOpen = true
                 }
-            }
-
-            item {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    OutlinedTextField(
-                        value = wasteName,
-                        onValueChange = {
-                            wasteName = it
-                        },
-                        label = {
-                            Text("Waste Name")
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        singleLine = true
-                    )
-
-                    ExposedDropdownMenuBox(
-                        expanded = expanded,
-                        onExpandedChange = {
-                            expanded = !expanded
-                        }
-                    ) {
-                        OutlinedTextField(
-                            value = selectedCategory,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = {
-                                Text("Category")
-                            },
-                            trailingIcon = {
-                                ExposedDropdownMenuDefaults.TrailingIcon(
-                                    expanded = expanded
-                                )
-                            },
-                            modifier = Modifier
-                                .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
-                                .fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-
-                        ExposedDropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = {
-                                expanded = false
-                            }
-                        ) {
-                            categories.forEach { category ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(category)
-                                    },
-                                    onClick = {
-                                        selectedCategory = category
-                                        expanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    OutlinedTextField(
-                        value = weight,
-                        onValueChange = { input ->
-                            if (
-                                input.all {
-                                    it.isDigit() || it == '.'
-                                }
-                            ) {
-                                weight = input
-                            }
-                        },
-                        label = {
-                            Text("Weight (kg)")
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number
-                        )
-                    )
-
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        elevation = CardDefaults.cardElevation(
-                            defaultElevation = 4.dp
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(20.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "Estimated Price"
-                            )
-
-                            Spacer(
-                                modifier = Modifier.height(8.dp)
-                            )
-
-                            Text(
-                                text = "IDR $estimatedPrice",
-                                style = MaterialTheme.typography.headlineSmall
-                            )
-                        }
-                    }
-
-                    Button(
-                        onClick = {
-                            val weightValue = weight.toDoubleOrNull() ?: 0.0
-
-                            if (
-                                wasteName.isBlank() ||
-                                weightValue <= 0
-                            ) {
-                                showErrorDialog = true
-                            } else {
-                                viewModel.addListing(
-                                    wasteName = wasteName.trim(),
-                                    category = selectedCategory,
-                                    weight = weightValue,
-                                    estimatedPrice = estimatedPrice,
-                                    onSuccess = {
-                                        Toast.makeText(
-                                            context,
-                                            "Waste listing created successfully.",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-
-                                        wasteName = ""
-                                        weight = ""
-                                    },
-                                    onFailure = { message ->
-                                        Toast.makeText(
-                                            context,
-                                            message,
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                )
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        enabled = !uiState.isUploading,
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        if (uiState.isUploading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.height(20.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text(
-                                text = "Sell Waste"
-                            )
-                        }
-                    }
-                }
-            }
-
-            item {
-                Text(
-                    text = "My Waste Listings",
-                    style = MaterialTheme.typography.titleLarge
-                )
-            }
-
-            if (uiState.isMyListingsLoading) {
-                item {
-                    CircularProgressIndicator()
-                }
-            } else if (uiState.myListings.isEmpty()) {
-                item {
-                    Text(
-                        text = "You have not created any waste listings yet.",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
-            } else {
-                items(
-                    items = uiState.myListings,
-                    key = { waste ->
-                        waste.id
-                    }
-                ) { waste ->
-                    WasteCard(
-                        wasteItem = waste,
-                        onClick = {}
-                    )
+                    Text("Create New Listing")
                 }
             }
         }
+    ) { paddingValues ->
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = "My Waste Listings",
+                    style = MaterialTheme.typography.headlineMedium
+                )
+
+                Text(
+                    text = "Manage stock, prices, and availability",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SellFilter.entries.forEach { filter ->
+                        FilterChip(
+                            selected = selectedFilter == filter,
+                            onClick = {
+                                selectedFilter = filter
+                            },
+                            label = {
+                                Text(filter.label)
+                            }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (uiState.isMyListingsLoading) {
+                    CircularProgressIndicator()
+                } else if (filteredListings.isEmpty()) {
+                    Text(
+                        text = "No listings match this filter.",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(
+                            items = filteredListings,
+                            key = { listing ->
+                                listing.id
+                            }
+                        ) { listing ->
+                            SellerListingCard(
+                                listing = listing,
+                                isSaving = uiState.isSaving,
+                                onEdit = {
+                                    editingListing = listing
+                                    isFormOpen = true
+                                },
+                                onDelete = {
+                                    viewModel.deleteListing(
+                                        listingId = listing.id,
+                                        onSuccess = {
+                                            Toast.makeText(
+                                                context,
+                                                "Waste listing deleted.",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        },
+                                        onFailure = { message ->
+                                            Toast.makeText(
+                                                context,
+                                                message,
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SellerListingCard(
+    listing: WasteItem,
+    isSaving: Boolean,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(76.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(8.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Image",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = listing.wasteName,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text("Stock: ${listing.stockKg} kg")
+                Text("IDR ${listing.pricePerKg} / kg")
+                Text("Status: ${listing.status.toDisplayStatus()}")
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onEdit,
+                        enabled = !isSaving
+                    ) {
+                        Text("Edit")
+                    }
+
+                    TextButton(
+                        onClick = onDelete,
+                        enabled = !isSaving
+                    ) {
+                        Text("Delete")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ListingFormDialog(
+    initialListing: WasteItem?,
+    isSaving: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (ListingForm) -> Unit
+) {
+    val categories = listOf("Organic", "Inorganic")
+    var wasteName by remember(initialListing) {
+        mutableStateOf(initialListing?.wasteName.orEmpty())
+    }
+    var category by remember(initialListing) {
+        mutableStateOf(initialListing?.category?.toDisplayCategory() ?: "Organic")
+    }
+    var stock by remember(initialListing) {
+        mutableStateOf(initialListing?.stockKg?.takeIf { it > 0.0 }?.toString().orEmpty())
+    }
+    var pricePerKg by remember(initialListing) {
+        mutableStateOf(initialListing?.pricePerKg?.takeIf { it > 0 }?.toString().orEmpty())
+    }
+    var imageUrl by remember(initialListing) {
+        mutableStateOf(initialListing?.imageUrl.orEmpty())
+    }
+    var expanded by remember {
+        mutableStateOf(false)
+    }
+    var errorMessage by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    AlertDialog(
+        onDismissRequest = {
+            if (!isSaving) {
+                onDismiss()
+            }
+        },
+        title = {
+            Text(
+                text = if (initialListing == null) {
+                    "Create New Listing"
+                } else {
+                    "Edit Listing"
+                }
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = wasteName,
+                    onValueChange = {
+                        wasteName = it
+                        errorMessage = null
+                    },
+                    label = {
+                        Text("Waste Name")
+                    },
+                    singleLine = true
+                )
+
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = {
+                        expanded = !expanded
+                    }
+                ) {
+                    OutlinedTextField(
+                        value = category,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = {
+                            Text("Category")
+                        },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                        },
+                        modifier = Modifier
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
+                            .fillMaxWidth()
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = {
+                            expanded = false
+                        }
+                    ) {
+                        categories.forEach { option ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(option)
+                                },
+                                onClick = {
+                                    category = option
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = stock,
+                    onValueChange = { input ->
+                        if (input.all { it.isDigit() || it == '.' }) {
+                            stock = input
+                            errorMessage = null
+                        }
+                    },
+                    label = {
+                        Text("Stock (kg)")
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+
+                OutlinedTextField(
+                    value = pricePerKg,
+                    onValueChange = { input ->
+                        if (input.all { it.isDigit() }) {
+                            pricePerKg = input
+                            errorMessage = null
+                        }
+                    },
+                    label = {
+                        Text("Price Per Kg")
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+
+                OutlinedTextField(
+                    value = imageUrl,
+                    onValueChange = {
+                        imageUrl = it
+                    },
+                    label = {
+                        Text("Image URL (optional)")
+                    },
+                    singleLine = true
+                )
+
+                errorMessage?.let { message ->
+                    Text(
+                        text = message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val stockValue = stock.toDoubleOrNull() ?: 0.0
+                    val priceValue = pricePerKg.toIntOrNull() ?: 0
+
+                    when {
+                        wasteName.isBlank() -> errorMessage = "Waste name is required."
+                        stockValue < 0.0 -> errorMessage = "Stock cannot be negative."
+                        priceValue <= 0 -> errorMessage = "Price per kg must be greater than 0."
+                        else -> onSave(
+                            ListingForm(
+                                wasteName = wasteName.trim(),
+                                category = category,
+                                stockKg = stockValue,
+                                pricePerKg = priceValue,
+                                imageUrl = imageUrl.trim()
+                            )
+                        )
+                    }
+                },
+                enabled = !isSaving
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Save")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isSaving
+            ) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+private data class ListingForm(
+    val wasteName: String,
+    val category: String,
+    val stockKg: Double,
+    val pricePerKg: Int,
+    val imageUrl: String
+)
+
+private fun String.toDisplayCategory(): String {
+    return when {
+        equals("Organik", ignoreCase = true) -> "Organic"
+        equals("Anorganik", ignoreCase = true) -> "Inorganic"
+        else -> this
+    }
+}
+
+private fun String.toDisplayStatus(): String {
+    return when (this) {
+        ListingStatus.ACTIVE.name -> "Active"
+        ListingStatus.SOLD_OUT.name -> "Sold Out"
+        ListingStatus.PENDING.name -> "Pending"
+        else -> this
     }
 }

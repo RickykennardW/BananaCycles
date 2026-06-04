@@ -196,6 +196,7 @@ class MainActivity : ComponentActivity() {
                                 selectedWaste != null -> {
                                     WasteDetailScreen(
                                         wasteItem = selectedWaste!!,
+                                        viewModel = wasteViewModel,
                                         onBack = {
                                             selectedWaste = null
                                         }
