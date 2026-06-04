@@ -36,6 +36,25 @@ fun ChatScreen() {
         FirebaseFirestore.getInstance()
     }
 
+    LaunchedEffect(Unit) {
+
+        firestore
+            .collection("chats")
+            .get()
+            .addOnSuccessListener { documents ->
+
+                val loadedMessages =
+                    documents.toObjects(ChatMessage::class.java)
+
+                chatMessages =
+                    loadedMessages.sortedBy {
+                        it.timestamp
+                    }
+
+            }
+
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
