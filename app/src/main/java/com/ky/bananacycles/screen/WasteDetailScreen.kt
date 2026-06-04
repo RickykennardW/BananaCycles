@@ -52,6 +52,8 @@ fun WasteDetailScreen(
     ) {
         ListingImage(
             imageUrl = wasteItem.imageUrl,
+            listingId = wasteItem.id,
+            sellerId = wasteItem.sellerId,
             height = 180.dp
         )
 

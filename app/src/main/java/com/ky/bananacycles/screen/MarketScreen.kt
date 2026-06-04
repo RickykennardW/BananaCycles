@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,6 +29,7 @@ import com.ky.bananacycles.component.WasteCard
 import com.ky.bananacycles.model.WasteItem
 import com.ky.bananacycles.viewmodel.WasteViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MarketScreen(
     viewModel: WasteViewModel,
@@ -69,124 +72,131 @@ fun MarketScreen(
         matchesSearch && matchesCategory
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
+    PullToRefreshBox(
+        isRefreshing = uiState.isMarketRefreshing,
+        onRefresh = {
+            viewModel.loadMarketListings(forceRefresh = true)
+        }
     ) {
-
-        Text(
-            text = "Marketplace",
-            style = MaterialTheme.typography.headlineMedium
-        )
-
-        Spacer(
-            modifier = Modifier.height(16.dp)
-        )
-
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = {
-                searchQuery = it
-            },
-            label = {
-                Text("Search Waste")
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(
-            modifier = Modifier.height(16.dp)
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
         ) {
 
-            FilterChip(
-                selected = selectedCategory == "All",
-                onClick = {
-                    selectedCategory = "All"
-                },
-                label = {
-                    Text("All")
-                }
-            )
-
-            FilterChip(
-                selected = selectedCategory == "Organic",
-                onClick = {
-                    selectedCategory = "Organic"
-                },
-                label = {
-                    Text("Organic")
-                }
-            )
-
-            FilterChip(
-                selected = selectedCategory == "Inorganic",
-                onClick = {
-                    selectedCategory = "Inorganic"
-                },
-                label = {
-                    Text("Inorganic")
-                }
-            )
-
-        }
-
-        Spacer(
-            modifier = Modifier.height(16.dp)
-        )
-
-        uiState.errorMessage?.let { message ->
             Text(
-                text = message,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium
+                text = "Marketplace",
+                style = MaterialTheme.typography.headlineMedium
             )
 
             Spacer(
-                modifier = Modifier.height(12.dp)
-            )
-        }
-
-        if (uiState.isMarketLoading) {
-
-            CircularProgressIndicator()
-
-        } else if (filteredWasteList.isEmpty()) {
-
-            Text(
-                text = "No waste listings are available.",
-                style = MaterialTheme.typography.bodyLarge
+                modifier = Modifier.height(16.dp)
             )
 
-        } else {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = {
+                    searchQuery = it
+                },
+                label = {
+                    Text("Search Waste")
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
 
-            LazyColumn {
+            Spacer(
+                modifier = Modifier.height(16.dp)
+            )
 
-                items(
-                    items = filteredWasteList,
-                    key = { waste ->
-                        waste.id
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+
+                FilterChip(
+                    selected = selectedCategory == "All",
+                    onClick = {
+                        selectedCategory = "All"
+                    },
+                    label = {
+                        Text("All")
                     }
-                ) { waste ->
+                )
 
-                    WasteCard(
-                        wasteItem = waste,
-                        onClick = {
-                            onWasteClick(waste)
+                FilterChip(
+                    selected = selectedCategory == "Organic",
+                    onClick = {
+                        selectedCategory = "Organic"
+                    },
+                    label = {
+                        Text("Organic")
+                    }
+                )
+
+                FilterChip(
+                    selected = selectedCategory == "Inorganic",
+                    onClick = {
+                        selectedCategory = "Inorganic"
+                    },
+                    label = {
+                        Text("Inorganic")
+                    }
+                )
+
+            }
+
+            Spacer(
+                modifier = Modifier.height(16.dp)
+            )
+
+            uiState.errorMessage?.let { message ->
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                Spacer(
+                    modifier = Modifier.height(12.dp)
+                )
+            }
+
+            if (uiState.isMarketLoading) {
+
+                CircularProgressIndicator()
+
+            } else if (filteredWasteList.isEmpty()) {
+
+                Text(
+                    text = "No waste listings are available.",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+
+            } else {
+
+                LazyColumn {
+
+                    items(
+                        items = filteredWasteList,
+                        key = { waste ->
+                            "${waste.id}-${waste.imageUrl}"
                         }
-                    )
+                    ) { waste ->
+
+                        WasteCard(
+                            wasteItem = waste,
+                            onClick = {
+                                onWasteClick(waste)
+                            }
+                        )
+
+                    }
 
                 }
 
             }
 
         }
-
     }
 
 }

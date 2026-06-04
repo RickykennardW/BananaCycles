@@ -32,6 +32,8 @@ private const val IMAGE_DEBUG_TAG = "IMAGE_DEBUG"
 @Composable
 fun ListingImage(
     imageUrl: String,
+    listingId: String = "",
+    sellerId: String = "",
     modifier: Modifier = Modifier.fillMaxWidth(),
     height: Dp = 120.dp
 ) {
@@ -41,7 +43,10 @@ fun ListingImage(
     }
 
     LaunchedEffect(normalizedUrl) {
-        Log.d(IMAGE_DEBUG_TAG, "Listing imageUrl: $normalizedUrl")
+        Log.d(
+            IMAGE_DEBUG_TAG,
+            "UI image listingId=$listingId, sellerId=$sellerId, imageUrl=$normalizedUrl"
+        )
     }
 
     Box(
@@ -62,12 +67,15 @@ fun ListingImage(
                         onError = { _, result ->
                             Log.e(
                                 IMAGE_DEBUG_TAG,
-                                "Coil failed to load imageUrl=$normalizedUrl",
+                                "Coil failed listingId=$listingId, sellerId=$sellerId, imageUrl=$normalizedUrl",
                                 result.throwable
                             )
                         },
                         onSuccess = { _, _ ->
-                            Log.d(IMAGE_DEBUG_TAG, "Coil loaded imageUrl=$normalizedUrl")
+                            Log.d(
+                                IMAGE_DEBUG_TAG,
+                                "Coil loaded listingId=$listingId, sellerId=$sellerId, imageUrl=$normalizedUrl"
+                            )
                         }
                     )
                     .build(),
@@ -80,7 +88,7 @@ fun ListingImage(
                         is AsyncImagePainter.State.Error -> {
                             Log.e(
                                 IMAGE_DEBUG_TAG,
-                                "AsyncImage error state for imageUrl=$normalizedUrl",
+                                "AsyncImage error state listingId=$listingId, sellerId=$sellerId, imageUrl=$normalizedUrl",
                                 state.result.throwable
                             )
                             ImageLoadState.Error

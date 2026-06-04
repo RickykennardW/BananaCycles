@@ -29,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -58,6 +59,7 @@ private enum class SellFilter(
     PENDING("Pending")
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UploadWasteScreen(
     viewModel: WasteViewModel
@@ -252,62 +254,69 @@ fun UploadWasteScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                if (uiState.isMyListingsLoading) {
-                    CircularProgressIndicator()
-                } else if (filteredListings.isEmpty()) {
-                    Text(
-                        text = "No listings match this filter.",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                } else {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(
-                            items = filteredListings,
-                            key = { listing ->
-                                listing.id
-                            }
-                        ) { listing ->
-                            SellerListingCard(
-                                listing = listing,
-                                isSaving = uiState.isSaving,
-                                onEdit = {
-                                    editingListing = listing
-                                    isFormOpen = true
-                                },
-                                onAddStock = {
-                                    stockAction = StockAction(
-                                        listing = listing,
-                                        type = StockActionType.ADD
-                                    )
-                                },
-                                onRemoveStock = {
-                                    stockAction = StockAction(
-                                        listing = listing,
-                                        type = StockActionType.REMOVE
-                                    )
-                                },
-                                onDelete = {
-                                    viewModel.deleteListing(
-                                        listingId = listing.id,
-                                        onSuccess = {
-                                            Toast.makeText(
-                                                context,
-                                                "Waste listing deleted.",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        },
-                                        onFailure = { message ->
-                                            Toast.makeText(
-                                                context,
-                                                message,
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
-                                    )
+                PullToRefreshBox(
+                    isRefreshing = uiState.isMyListingsRefreshing,
+                    onRefresh = {
+                        viewModel.loadMyListings(forceRefresh = true)
+                    }
+                ) {
+                    if (uiState.isMyListingsLoading) {
+                        CircularProgressIndicator()
+                    } else if (filteredListings.isEmpty()) {
+                        Text(
+                            text = "No listings match this filter.",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    } else {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(
+                                items = filteredListings,
+                                key = { listing ->
+                                    "${listing.id}-${listing.imageUrl}"
                                 }
-                            )
+                            ) { listing ->
+                                SellerListingCard(
+                                    listing = listing,
+                                    isSaving = uiState.isSaving,
+                                    onEdit = {
+                                        editingListing = listing
+                                        isFormOpen = true
+                                    },
+                                    onAddStock = {
+                                        stockAction = StockAction(
+                                            listing = listing,
+                                            type = StockActionType.ADD
+                                        )
+                                    },
+                                    onRemoveStock = {
+                                        stockAction = StockAction(
+                                            listing = listing,
+                                            type = StockActionType.REMOVE
+                                        )
+                                    },
+                                    onDelete = {
+                                        viewModel.deleteListing(
+                                            listingId = listing.id,
+                                            onSuccess = {
+                                                Toast.makeText(
+                                                    context,
+                                                    "Waste listing deleted.",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            },
+                                            onFailure = { message ->
+                                                Toast.makeText(
+                                                    context,
+                                                    message,
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        )
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -339,6 +348,8 @@ private fun SellerListingCard(
         ) {
             ListingImage(
                 imageUrl = listing.imageUrl,
+                listingId = listing.id,
+                sellerId = listing.sellerId,
                 modifier = Modifier
                     .size(76.dp),
                 height = 76.dp

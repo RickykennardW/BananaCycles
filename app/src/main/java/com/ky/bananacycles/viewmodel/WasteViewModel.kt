@@ -1,5 +1,6 @@
 package com.ky.bananacycles.viewmodel
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -9,11 +10,15 @@ import com.google.firebase.firestore.ListenerRegistration
 import com.ky.bananacycles.model.WasteItem
 import com.ky.bananacycles.repository.WasteRepository
 
+private const val IMAGE_DEBUG_TAG = "IMAGE_DEBUG"
+
 data class WasteUiState(
     val marketListings: List<WasteItem> = emptyList(),
     val myListings: List<WasteItem> = emptyList(),
     val isMarketLoading: Boolean = false,
     val isMyListingsLoading: Boolean = false,
+    val isMarketRefreshing: Boolean = false,
+    val isMyListingsRefreshing: Boolean = false,
     val isSaving: Boolean = false,
     val isPurchasing: Boolean = false,
     val errorMessage: String? = null
@@ -30,13 +35,20 @@ class WasteViewModel(
     private var marketListener: ListenerRegistration? = null
     private var myListingsListener: ListenerRegistration? = null
 
-    fun loadMarketListings() {
+    fun loadMarketListings(
+        forceRefresh: Boolean = false
+    ) {
+        if (forceRefresh && uiState.isMarketRefreshing) {
+            return
+        }
+
         val currentUserId = auth.currentUser?.uid
 
         if (currentUserId.isNullOrBlank()) {
             uiState = uiState.copy(
                 marketListings = emptyList(),
                 isMarketLoading = false,
+                isMarketRefreshing = false,
                 errorMessage = "User is not signed in."
             )
             return
@@ -44,22 +56,31 @@ class WasteViewModel(
 
         marketListener?.remove()
         uiState = uiState.copy(
-            isMarketLoading = true,
+            isMarketLoading = !forceRefresh,
+            isMarketRefreshing = forceRefresh,
             errorMessage = null
         )
 
         marketListener = repository.listenMarketListings(
             currentUserId = currentUserId,
             onDataChanged = { listings ->
+                listings.forEach { listing ->
+                    Log.d(
+                        IMAGE_DEBUG_TAG,
+                        "ViewModel market listingId=${listing.id}, sellerId=${listing.sellerId}, imageUrl=${listing.imageUrl}"
+                    )
+                }
                 uiState = uiState.copy(
                     marketListings = listings,
                     isMarketLoading = false,
+                    isMarketRefreshing = false,
                     errorMessage = null
                 )
             },
             onError = { error ->
                 uiState = uiState.copy(
                     isMarketLoading = false,
+                    isMarketRefreshing = false,
                     errorMessage = error.localizedMessage
                         ?: "Failed to load the marketplace."
                 )
@@ -67,13 +88,20 @@ class WasteViewModel(
         )
     }
 
-    fun loadMyListings() {
+    fun loadMyListings(
+        forceRefresh: Boolean = false
+    ) {
+        if (forceRefresh && uiState.isMyListingsRefreshing) {
+            return
+        }
+
         val currentUserId = auth.currentUser?.uid
 
         if (currentUserId.isNullOrBlank()) {
             uiState = uiState.copy(
                 myListings = emptyList(),
                 isMyListingsLoading = false,
+                isMyListingsRefreshing = false,
                 errorMessage = "User is not signed in."
             )
             return
@@ -81,22 +109,31 @@ class WasteViewModel(
 
         myListingsListener?.remove()
         uiState = uiState.copy(
-            isMyListingsLoading = true,
+            isMyListingsLoading = !forceRefresh,
+            isMyListingsRefreshing = forceRefresh,
             errorMessage = null
         )
 
         myListingsListener = repository.listenUserListings(
             currentUserId = currentUserId,
             onDataChanged = { listings ->
+                listings.forEach { listing ->
+                    Log.d(
+                        IMAGE_DEBUG_TAG,
+                        "ViewModel seller listingId=${listing.id}, sellerId=${listing.sellerId}, imageUrl=${listing.imageUrl}"
+                    )
+                }
                 uiState = uiState.copy(
                     myListings = listings,
                     isMyListingsLoading = false,
+                    isMyListingsRefreshing = false,
                     errorMessage = null
                 )
             },
             onError = { error ->
                 uiState = uiState.copy(
                     isMyListingsLoading = false,
+                    isMyListingsRefreshing = false,
                     errorMessage = error.localizedMessage
                         ?: "Failed to load your waste listings."
                 )

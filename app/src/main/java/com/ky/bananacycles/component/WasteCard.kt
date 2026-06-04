@@ -32,7 +32,9 @@ fun WasteCard(
             modifier = Modifier.padding(16.dp)
         ) {
             ListingImage(
-                imageUrl = wasteItem.imageUrl
+                imageUrl = wasteItem.imageUrl,
+                listingId = wasteItem.id,
+                sellerId = wasteItem.sellerId
             )
 
             Spacer(modifier = Modifier.height(12.dp))

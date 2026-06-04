@@ -254,15 +254,16 @@ class WasteFirestoreService(
             val status = document.getString("status")
                 ?: if (stockKg > 0.0) ListingStatus.ACTIVE.name else ListingStatus.SOLD_OUT.name
             val imageUrl = document.getString("imageUrl").orEmpty()
+            val sellerId = document.getString("sellerId").orEmpty()
 
             Log.d(
                 IMAGE_DEBUG_TAG,
-                "Firestore listingId=${document.id}, imageUrl=$imageUrl"
+                "Firestore listingId=${document.id}, sellerId=$sellerId, imageUrl=$imageUrl"
             )
 
             WasteItem(
                 id = document.getString("listingId") ?: document.id,
-                sellerId = document.getString("sellerId").orEmpty(),
+                sellerId = sellerId,
                 sellerName = document.getString("sellerName").orEmpty(),
                 wasteName = document.getString("wasteName").orEmpty(),
                 category = document.getString("category").orEmpty(),
