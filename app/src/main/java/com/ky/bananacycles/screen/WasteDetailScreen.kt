@@ -9,14 +9,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +36,7 @@ import com.ky.bananacycles.component.ListingImage
 import com.ky.bananacycles.model.WasteItem
 import com.ky.bananacycles.viewmodel.WasteViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WasteDetailScreen(
     wasteItem: WasteItem,
@@ -45,131 +52,153 @@ fun WasteDetailScreen(
         mutableStateOf<String?>(null)
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(20.dp)
-    ) {
-        ListingImage(
-            imageUrl = wasteItem.imageUrl,
-            listingId = wasteItem.id,
-            sellerId = wasteItem.sellerId,
-            height = 180.dp
-        )
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        Text(
-            text = wasteItem.wasteName,
-            style = MaterialTheme.typography.headlineMedium
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(8.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text("Seller: ${wasteItem.sellerName.ifBlank { "Unknown Seller" }}")
-                Text("Category: ${wasteItem.category.toDisplayCategory()}")
-                Text("Available Stock: ${wasteItem.stockKg} kg")
-                Text("Price Per Kg: IDR ${wasteItem.pricePerKg}")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        OutlinedTextField(
-            value = quantity,
-            onValueChange = { input ->
-                if (input.all { it.isDigit() || it == '.' }) {
-                    quantity = input
-                    errorMessage = null
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            label = {
-                Text("Purchase Quantity (kg)")
-            },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-        )
-
-        errorMessage?.let { message ->
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = message,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        Button(
-            onClick = {
-                val quantityValue = quantity.toDoubleOrNull() ?: 0.0
-
-                when {
-                    quantityValue <= 0.0 -> {
-                        errorMessage = "Please enter a purchase quantity greater than 0 kg."
-                    }
-
-                    quantityValue > wasteItem.stockKg -> {
-                        errorMessage = "Requested quantity exceeds available stock."
-                    }
-
-                    else -> {
-                        viewModel.purchaseListing(
-                            listing = wasteItem,
-                            quantityKg = quantityValue,
-                            onSuccess = {
-                                Toast.makeText(
-                                    context,
-                                    "Purchase completed successfully.",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                                onBack()
-                            },
-                            onFailure = { message ->
-                                errorMessage = message
-                            }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = wasteItem.wasteName,
+                        maxLines = 1
+                    )
+                },
+                navigationIcon = {
+                    IconButton(
+                        onClick = onBack
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
                         )
                     }
                 }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !uiState.isPurchasing
-        ) {
-            if (uiState.isPurchasing) {
-                CircularProgressIndicator(
-                    modifier = Modifier.height(18.dp),
-                    strokeWidth = 2.dp
-                )
-            } else {
-                Text("Purchase")
-            }
+            )
         }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        TextButton(
-            onClick = onBack,
-            modifier = Modifier.fillMaxWidth()
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(20.dp)
         ) {
-            Text("Back")
+            Text(
+                text = wasteItem.wasteName,
+                style = MaterialTheme.typography.headlineMedium
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            ListingImage(
+                imageUrl = wasteItem.imageUrl,
+                listingId = wasteItem.id,
+                sellerId = wasteItem.sellerId,
+                height = 220.dp
+            )
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "Remaining Stock",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${wasteItem.stockKg.toStockText()} kg",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            OutlinedTextField(
+                value = quantity,
+                onValueChange = { input ->
+                    if (input.all { it.isDigit() || it == '.' }) {
+                        quantity = input
+                        errorMessage = null
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = {
+                    Text("Quantity (kg)")
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            )
+
+            errorMessage?.let { message ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            Button(
+                onClick = {
+                    val quantityValue = quantity.toDoubleOrNull() ?: 0.0
+
+                    when {
+                        quantityValue <= 0.0 -> {
+                            errorMessage = "Please enter a purchase quantity greater than 0 kg."
+                        }
+
+                        quantityValue > wasteItem.stockKg -> {
+                            errorMessage = "Requested quantity exceeds available stock."
+                        }
+
+                        else -> {
+                            viewModel.purchaseListing(
+                                listing = wasteItem,
+                                quantityKg = quantityValue,
+                                onSuccess = {
+                                    Toast.makeText(
+                                        context,
+                                        "Purchase completed successfully.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                    onBack()
+                                },
+                                onFailure = { message ->
+                                    errorMessage = message
+                                }
+                            )
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                enabled = !uiState.isPurchasing
+            ) {
+                if (uiState.isPurchasing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.height(18.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Purchase")
+                }
+            }
         }
     }
 }
 
-private fun String.toDisplayCategory(): String {
-    return when {
-        equals("Organik", ignoreCase = true) -> "Organic"
-        equals("Anorganik", ignoreCase = true) -> "Inorganic"
-        else -> this
+private fun Double.toStockText(): String {
+    return if (this % 1.0 == 0.0) {
+        toInt().toString()
+    } else {
+        toString()
     }
 }

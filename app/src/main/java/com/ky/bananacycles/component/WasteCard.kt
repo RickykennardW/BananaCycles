@@ -7,9 +7,14 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ky.bananacycles.model.WasteItem
+
+private val MarketplacePriceColor = Color(0xFF0B3D91)
 
 @Composable
 fun WasteCard(
@@ -19,47 +24,51 @@ fun WasteCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 12.dp)
             .clickable {
                 onClick()
             },
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 4.dp
+            defaultElevation = 2.dp
         )
     ) {
 
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(10.dp)
         ) {
             ListingImage(
                 imageUrl = wasteItem.imageUrl,
                 listingId = wasteItem.id,
-                sellerId = wasteItem.sellerId
+                sellerId = wasteItem.sellerId,
+                height = 112.dp
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Text(
                 text = wasteItem.wasteName,
-                style = MaterialTheme.typography.titleLarge
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = "Category: ${wasteItem.category.toDisplayCategory()}"
+                text = "Rp ${wasteItem.pricePerKg.toRupiah()} / kg",
+                style = MaterialTheme.typography.titleMedium,
+                color = MarketplacePriceColor,
+                fontWeight = FontWeight.Bold
             )
 
-            Text(
-                text = "Stock: ${wasteItem.stockKg} kg"
-            )
+            Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "IDR ${wasteItem.pricePerKg} / kg"
-            )
-
-            Text(
-                text = "Status: ${wasteItem.status.toDisplayStatus()}"
+                text = "${wasteItem.stockKg.toStockText()} kg available",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
         }
@@ -68,19 +77,14 @@ fun WasteCard(
 
 }
 
-private fun String.toDisplayCategory(): String {
-    return when {
-        equals("Organik", ignoreCase = true) -> "Organic"
-        equals("Anorganik", ignoreCase = true) -> "Inorganic"
-        else -> this
-    }
+private fun Int.toRupiah(): String {
+    return "%,d".format(this).replace(",", ".")
 }
 
-private fun String.toDisplayStatus(): String {
-    return when (this) {
-        "ACTIVE" -> "Active"
-        "SOLD_OUT" -> "Sold Out"
-        "PENDING" -> "Pending"
-        else -> this
+private fun Double.toStockText(): String {
+    return if (this % 1.0 == 0.0) {
+        toInt().toString()
+    } else {
+        toString()
     }
 }
