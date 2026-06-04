@@ -5,12 +5,15 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -18,17 +21,22 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.ky.bananacycles.auth.LoginScreen
 import com.ky.bananacycles.auth.RegisterScreen
 import com.ky.bananacycles.model.WasteItem
+import com.ky.bananacycles.screen.ChatDetailScreen
 import com.ky.bananacycles.screen.ChatScreen
 import com.ky.bananacycles.screen.MarketScreen
 import com.ky.bananacycles.screen.ProfileScreen
@@ -36,6 +44,7 @@ import com.ky.bananacycles.screen.TransactionScreen
 import com.ky.bananacycles.screen.UploadWasteScreen
 import com.ky.bananacycles.screen.WasteDetailScreen
 import com.ky.bananacycles.ui.theme.BananaCyclesTheme
+import com.ky.bananacycles.viewmodel.ChatViewModel
 import com.ky.bananacycles.viewmodel.WasteViewModel
 
 private object BottomRoutes {
@@ -89,6 +98,12 @@ class MainActivity : ComponentActivity() {
                     }
                 } else {
                     val wasteViewModel: WasteViewModel = viewModel()
+                    val chatViewModel: ChatViewModel = viewModel()
+                    val context = LocalContext.current
+
+                    LaunchedEffect(Unit) {
+                        chatViewModel.listenInbox()
+                    }
 
                     // Bottom navigation uses explicit routes for the five primary app tabs.
                     var selectedRoute by remember {
@@ -99,6 +114,14 @@ class MainActivity : ComponentActivity() {
                         mutableStateOf<WasteItem?>(null)
                     }
 
+                    var selectedChatId by remember {
+                        mutableStateOf<String?>(null)
+                    }
+
+                    val totalUnreadChats = chatViewModel.uiState.totalUnreadFor(
+                        chatViewModel.currentUserId
+                    )
+
                     Scaffold(
                         bottomBar = {
                             NavigationBar {
@@ -107,6 +130,7 @@ class MainActivity : ComponentActivity() {
                                     onClick = {
                                         selectedRoute = BottomRoutes.MARKET
                                         selectedWaste = null
+                                        selectedChatId = null
                                     },
                                     icon = {
                                         Icon(
@@ -124,6 +148,7 @@ class MainActivity : ComponentActivity() {
                                     onClick = {
                                         selectedRoute = BottomRoutes.SELL
                                         selectedWaste = null
+                                        selectedChatId = null
                                     },
                                     icon = {
                                         Icon(
@@ -141,11 +166,11 @@ class MainActivity : ComponentActivity() {
                                     onClick = {
                                         selectedRoute = BottomRoutes.CHAT
                                         selectedWaste = null
+                                        selectedChatId = null
                                     },
                                     icon = {
-                                        Icon(
-                                            Icons.Default.Email,
-                                            contentDescription = null
+                                        ChatNavigationIcon(
+                                            hasUnreadMessages = totalUnreadChats > 0
                                         )
                                     },
                                     label = {
@@ -158,10 +183,11 @@ class MainActivity : ComponentActivity() {
                                     onClick = {
                                         selectedRoute = BottomRoutes.TRANSACTION
                                         selectedWaste = null
+                                        selectedChatId = null
                                     },
                                     icon = {
                                         Icon(
-                                            Icons.Default.List,
+                                            Icons.AutoMirrored.Filled.List,
                                             contentDescription = null
                                         )
                                     },
@@ -175,6 +201,7 @@ class MainActivity : ComponentActivity() {
                                     onClick = {
                                         selectedRoute = BottomRoutes.PROFILE
                                         selectedWaste = null
+                                        selectedChatId = null
                                     },
                                     icon = {
                                         Icon(
@@ -199,6 +226,38 @@ class MainActivity : ComponentActivity() {
                                         viewModel = wasteViewModel,
                                         onBack = {
                                             selectedWaste = null
+                                        },
+                                        onChatSeller = { listing ->
+                                            chatViewModel.startChatWithSeller(
+                                                listing = listing,
+                                                onSuccess = { chatId ->
+                                                    selectedRoute = BottomRoutes.CHAT
+                                                    selectedWaste = null
+                                                    selectedChatId = chatId
+                                                },
+                                                onFailure = { message ->
+                                                    android.widget.Toast.makeText(
+                                                        context,
+                                                        message,
+                                                        android.widget.Toast.LENGTH_SHORT
+                                                    ).show()
+                                                }
+                                            )
+                                        }
+                                    )
+                                }
+
+                                selectedChatId != null -> {
+                                    val chatRoom = chatViewModel.uiState.chatRooms.firstOrNull { room ->
+                                        room.id == selectedChatId
+                                    }
+
+                                    ChatDetailScreen(
+                                        chatId = selectedChatId!!,
+                                        chatRoom = chatRoom,
+                                        viewModel = chatViewModel,
+                                        onBack = {
+                                            selectedChatId = null
                                         }
                                     )
                                 }
@@ -213,7 +272,12 @@ class MainActivity : ComponentActivity() {
                                 }
 
                                 selectedRoute == BottomRoutes.CHAT -> {
-                                    ChatScreen()
+                                    ChatScreen(
+                                        viewModel = chatViewModel,
+                                        onChatClick = { chatId ->
+                                            selectedChatId = chatId
+                                        }
+                                    )
                                 }
 
                                 selectedRoute == BottomRoutes.SELL -> {
@@ -235,6 +299,32 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ChatNavigationIcon(
+    hasUnreadMessages: Boolean
+) {
+    if (hasUnreadMessages) {
+        BadgedBox(
+            badge = {
+                Badge(
+                    modifier = Modifier.size(8.dp),
+                    containerColor = Color(0xFF0B7DFF)
+                )
+            }
+        ) {
+            Icon(
+                Icons.Default.Email,
+                contentDescription = null
+            )
+        }
+    } else {
+        Icon(
+            Icons.Default.Email,
+            contentDescription = null
+        )
     }
 }
 

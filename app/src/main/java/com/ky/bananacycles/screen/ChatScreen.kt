@@ -1,75 +1,80 @@
 package com.ky.bananacycles.screen
 
+import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import com.ky.bananacycles.model.ChatMessage
+import com.ky.bananacycles.model.ChatRoom
+import com.ky.bananacycles.model.MessageStatus
+import com.ky.bananacycles.viewmodel.ChatViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
-fun ChatScreen() {
-
-    var messageText by remember {
+fun ChatScreen(
+    viewModel: ChatViewModel,
+    onChatClick: (String) -> Unit
+) {
+    val uiState = viewModel.uiState
+    val currentUserId = viewModel.currentUserId
+    var searchQuery by remember {
         mutableStateOf("")
     }
 
-    var chatMessages by remember {
-        mutableStateOf(
-            listOf<ChatMessage>()
-        )
-    }
-
-    val firestore = remember {
-        FirebaseFirestore.getInstance()
-    }
-
-    val auth = remember {
-        FirebaseAuth.getInstance()
-    }
-
     LaunchedEffect(Unit) {
+        viewModel.listenInbox()
+    }
 
-        firestore
-            .collection("chats")
-            .addSnapshotListener { snapshot, error ->
-
-                if (error != null) {
-                    return@addSnapshotListener
-                }
-
-                if (snapshot != null) {
-
-                    val loadedMessages =
-                        snapshot.toObjects(
-                            ChatMessage::class.java
-                        )
-
-                    chatMessages =
-                        loadedMessages.sortedBy {
-                            it.timestamp
-                        }
-
-                }
-
-            }
-
+    val filteredRooms = uiState.chatRooms.filter { room ->
+        room.otherParticipantName(currentUserId).contains(searchQuery, ignoreCase = true) ||
+            room.listingName.contains(searchQuery, ignoreCase = true)
     }
 
     Column(
@@ -77,153 +82,465 @@ fun ChatScreen() {
             .fillMaxSize()
             .padding(16.dp)
     ) {
-
         Text(
-            text = "Chat",
+            text = "Chats",
             style = MaterialTheme.typography.headlineMedium
         )
 
-        if (chatMessages.isEmpty()) {
+        Spacer(modifier = Modifier.height(12.dp))
 
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = {
+                searchQuery = it
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = {
+                Text("Search chats")
+            },
+            singleLine = true
+        )
 
-                Text(
-                    text = "No messages yet.",
-                    style = MaterialTheme.typography.headlineSmall
-                )
+        Spacer(modifier = Modifier.height(16.dp))
 
-                Text(
-                    text = "Start your first conversation."
-                )
-
-            }
-
-        } else {
-
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-
-                items(chatMessages) { chat ->
-
-                    val currentUserId =
-                        auth.currentUser?.uid ?: ""
-
-                    val isMyMessage =
-                        chat.senderId == currentUserId
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement =
-                            if (isMyMessage)
-                                Arrangement.End
-                            else
-                                Arrangement.Start
-                    ) {
-
-                        Column(
-                            horizontalAlignment =
-                                if (isMyMessage)
-                                    Alignment.End
-                                else
-                                    Alignment.Start
-                        ) {
-
-                            Text(
-                                text = chat.senderName,
-                                style = MaterialTheme.typography.labelMedium
-                            )
-
-                            Card(
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor =
-                                        if (isMyMessage)
-                                            MaterialTheme.colorScheme.primaryContainer
-                                        else
-                                            MaterialTheme.colorScheme.secondaryContainer
-                                )
-                            ) {
-
-                                Text(
-                                    text = chat.message,
-                                    modifier = Modifier.padding(12.dp),
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-
-                            }
-
-                        }
-
-                    }
-
-                }
-
-            }
-
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-
-            OutlinedTextField(
-                value = messageText,
-                onValueChange = {
-                    messageText = it
-                },
-                label = {
-                    Text("Type a message")
-                },
-                modifier = Modifier.weight(1f)
+        uiState.errorMessage?.let { message ->
+            Text(
+                text = message,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium
             )
-
-            Button(
-                onClick = {
-
-                    if (messageText.isNotBlank()) {
-
-                        val currentUser =
-                            auth.currentUser
-
-                        val newMessage = ChatMessage(
-                            id = System.currentTimeMillis().toString(),
-                            senderId = currentUser?.uid ?: "",
-                            senderName =
-                                currentUser?.displayName
-                                    ?: currentUser?.email
-                                    ?: "Anonymous",
-                            message = messageText
-                        )
-
-                        firestore
-                            .collection("chats")
-                            .document(newMessage.id)
-                            .set(newMessage)
-
-                        messageText = ""
-
-                    }
-
-                },
-                modifier = Modifier.padding(start = 8.dp)
-            ) {
-
-                Text("Send")
-
-            }
-
+            Spacer(modifier = Modifier.height(12.dp))
         }
 
+        when {
+            uiState.isInboxLoading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+
+            filteredRooms.isEmpty() -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Avatar()
+                        Text(
+                            text = "No chats yet",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = "Open a listing and start a conversation with the seller.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            else -> {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(
+                        items = filteredRooms,
+                        key = { room -> room.id }
+                    ) { room ->
+                        ChatRoomCard(
+                            room = room,
+                            currentUserId = currentUserId,
+                            onClick = {
+                                viewModel.markChatAsRead(room.id)
+                                onChatClick(room.id)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChatDetailScreen(
+    chatId: String,
+    chatRoom: ChatRoom?,
+    viewModel: ChatViewModel,
+    onBack: () -> Unit
+) {
+    val context = LocalContext.current
+    val uiState = viewModel.uiState
+    val currentUserId = viewModel.currentUserId
+    val listState = rememberLazyListState()
+    var messageText by remember {
+        mutableStateOf("")
     }
 
+    LaunchedEffect(chatId) {
+        viewModel.listenMessages(chatId)
+    }
+
+    LaunchedEffect(uiState.selectedMessages.size) {
+        if (uiState.selectedMessages.isNotEmpty()) {
+            listState.animateScrollToItem(uiState.selectedMessages.lastIndex)
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(
+                            text = chatRoom?.otherParticipantName(currentUserId) ?: "Chat",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        chatRoom?.listingName?.takeIf { it.isNotBlank() }?.let { listingName ->
+                            Text(
+                                text = listingName,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                },
+                navigationIcon = {
+                    IconButton(
+                        onClick = {
+                            viewModel.clearMessages()
+                            onBack()
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            if (uiState.isMessagesLoading || chatRoom == null) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    itemsIndexed(
+                        items = uiState.selectedMessages,
+                        key = { _, message -> message.id }
+                    ) { index, message ->
+                        val previousMessage = uiState.selectedMessages.getOrNull(index - 1)
+                        val isMine = message.senderId == currentUserId
+                        val startsNewSenderGroup = previousMessage?.senderId != message.senderId
+
+                        MessageBubble(
+                            message = message,
+                            isMine = isMine,
+                            showSenderHeader = !isMine && startsNewSenderGroup,
+                            senderName = chatRoom.participantNames[message.senderId]
+                                ?: chatRoom.otherParticipantName(currentUserId)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = messageText,
+                    onValueChange = {
+                        messageText = it
+                    },
+                    modifier = Modifier.weight(1f),
+                    label = {
+                        Text("Type message")
+                    },
+                    singleLine = true
+                )
+
+                IconButton(
+                    onClick = {
+                        val room = chatRoom ?: return@IconButton
+                        viewModel.sendMessage(
+                            chatRoom = room,
+                            message = messageText,
+                            onFailure = { message ->
+                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                        messageText = ""
+                    },
+                    enabled = messageText.isNotBlank() && !uiState.isSending && chatRoom != null
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        contentDescription = "Send"
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChatRoomCard(
+    room: ChatRoom,
+    currentUserId: String,
+    onClick: () -> Unit
+) {
+    val unreadCount = room.unreadCounts[currentUserId] ?: 0
+
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Avatar()
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = room.otherParticipantName(currentUserId),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = room.lastMessage.ifBlank { "Chat about ${room.listingName}" },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = room.lastMessageTime.toChatTime(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                if (unreadCount > 0) {
+                    UnreadBadge(count = unreadCount)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MessageBubble(
+    message: ChatMessage,
+    isMine: Boolean,
+    showSenderHeader: Boolean,
+    senderName: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (isMine) Arrangement.End else Arrangement.Start
+    ) {
+        if (!isMine) {
+            if (showSenderHeader) {
+                Avatar(
+                    modifier = Modifier.size(36.dp)
+                )
+            } else {
+                Spacer(modifier = Modifier.width(36.dp))
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+
+        Column(
+            horizontalAlignment = if (isMine) Alignment.End else Alignment.Start,
+            modifier = Modifier.widthIn(max = 292.dp)
+        ) {
+            if (!isMine && showSenderHeader) {
+                Text(
+                    text = senderName,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .clip(
+                        RoundedCornerShape(
+                            topStart = 18.dp,
+                            topEnd = 18.dp,
+                            bottomStart = if (isMine) 18.dp else 4.dp,
+                            bottomEnd = if (isMine) 4.dp else 18.dp
+                        )
+                    )
+                    .background(
+                        if (isMine) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        }
+                    )
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
+                ) {
+                    Text(
+                        text = message.message,
+                        color = if (isMine) {
+                            MaterialTheme.colorScheme.onPrimary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = message.timestamp.toChatTime(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isMine) {
+                                MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.72f)
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
+                            }
+                        )
+
+                        if (isMine) {
+                            ReadReceipt(
+                                message = message
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Avatar(
+    modifier: Modifier = Modifier.size(48.dp)
+) {
+    Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primaryContainer),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Person,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+    }
+}
+
+@Composable
+private fun ReadReceipt(
+    message: ChatMessage
+) {
+    val isRead = message.status == MessageStatus.READ.name || message.readAt > 0L
+    val receiptText = when {
+        isRead -> "✓✓"
+        message.status == MessageStatus.DELIVERED.name || message.timestamp > 0L -> "✓✓"
+        else -> "✓"
+    }
+
+    Text(
+        text = receiptText,
+        style = MaterialTheme.typography.labelSmall,
+        color = if (isRead) {
+            Color(0xFF40A9FF)
+        } else {
+            MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.72f)
+        },
+        fontWeight = FontWeight.Bold
+    )
+}
+
+@Composable
+private fun UnreadBadge(count: Int) {
+    Box(
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primary)
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = count.coerceAtMost(99).toString(),
+            color = MaterialTheme.colorScheme.onPrimary,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+private fun ChatRoom.otherParticipantName(currentUserId: String): String {
+    val otherUserId = participants.firstOrNull { userId -> userId != currentUserId }.orEmpty()
+    return participantNames[otherUserId].orEmpty().ifBlank { "BananaCycles User" }
+}
+
+private fun Long.toChatTime(): String {
+    if (this <= 0L) {
+        return ""
+    }
+
+    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(this))
 }

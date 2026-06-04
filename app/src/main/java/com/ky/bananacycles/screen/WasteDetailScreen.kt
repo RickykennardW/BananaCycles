@@ -41,7 +41,8 @@ import com.ky.bananacycles.viewmodel.WasteViewModel
 fun WasteDetailScreen(
     wasteItem: WasteItem,
     viewModel: WasteViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onChatSeller: (WasteItem) -> Unit
 ) {
     val context = LocalContext.current
     val uiState = viewModel.uiState
@@ -190,6 +191,20 @@ fun WasteDetailScreen(
                 } else {
                     Text("Purchase")
                 }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Button(
+                onClick = {
+                    onChatSeller(wasteItem)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                enabled = !uiState.isPurchasing
+            ) {
+                Text("Chat Seller")
             }
         }
     }
