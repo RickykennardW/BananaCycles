@@ -1,7 +1,9 @@
 package com.ky.bananacycles.screen
 
 import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -33,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.ky.bananacycles.component.ListingImage
+import com.ky.bananacycles.component.UserAvatar
 import com.ky.bananacycles.model.WasteItem
 import com.ky.bananacycles.viewmodel.WasteViewModel
 
@@ -42,7 +46,8 @@ fun WasteDetailScreen(
     wasteItem: WasteItem,
     viewModel: WasteViewModel,
     onBack: () -> Unit,
-    onChatSeller: (WasteItem) -> Unit
+    onChatSeller: (WasteItem) -> Unit,
+    onSellerClick: (String) -> Unit
 ) {
     val context = LocalContext.current
     val uiState = viewModel.uiState
@@ -84,6 +89,15 @@ fun WasteDetailScreen(
             Text(
                 text = wasteItem.wasteName,
                 style = MaterialTheme.typography.headlineMedium
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            SellerProfileCard(
+                wasteItem = wasteItem,
+                onClick = {
+                    onSellerClick(wasteItem.sellerId)
+                }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -206,6 +220,52 @@ fun WasteDetailScreen(
             ) {
                 Text("Chat Seller")
             }
+        }
+    }
+}
+
+@Composable
+private fun SellerProfileCard(
+    wasteItem: WasteItem,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) {
+            UserAvatar(
+                photoUrl = wasteItem.sellerPhotoUrl,
+                size = 46.dp
+            )
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp)
+            ) {
+                Text(
+                    text = wasteItem.sellerName.ifBlank { "BananaCycles Seller" },
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = "View Seller Profile",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.List,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

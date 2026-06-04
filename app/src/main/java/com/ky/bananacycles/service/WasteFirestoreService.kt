@@ -21,6 +21,7 @@ class WasteFirestoreService(
     fun addListing(
         sellerId: String,
         sellerName: String,
+        sellerPhotoUrl: String,
         wasteName: String,
         category: String,
         stockKg: Double,
@@ -34,6 +35,7 @@ class WasteFirestoreService(
             "listingId" to listingDocument.id,
             "sellerId" to sellerId,
             "sellerName" to sellerName,
+            "sellerPhotoUrl" to sellerPhotoUrl,
             "wasteName" to wasteName,
             "category" to category,
             "stockKg" to stockKg,
@@ -269,6 +271,32 @@ class WasteFirestoreService(
             }
     }
 
+    fun listenSellerActiveListings(
+        sellerId: String,
+        onDataChanged: (List<WasteItem>) -> Unit,
+        onError: (Exception) -> Unit
+    ): ListenerRegistration {
+        return listingsCollection
+            .whereEqualTo("sellerId", sellerId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    onError(error)
+                    return@addSnapshotListener
+                }
+
+                val listings = snapshot
+                    ?.toWasteItems()
+                    ?.filter { listing ->
+                        listing.status == ListingStatus.ACTIVE.name &&
+                            listing.stockKg > 0.0
+                    }
+                    ?.sortedByDescending { listing -> listing.createdAt }
+                    .orEmpty()
+
+                onDataChanged(listings)
+            }
+    }
+
     private fun QuerySnapshot.toWasteItems(): List<WasteItem> {
         return documents.map { document ->
             val createdAtTimestamp = document.getTimestamp("createdAt")
@@ -292,6 +320,7 @@ class WasteFirestoreService(
                 id = document.getString("listingId") ?: document.id,
                 sellerId = sellerId,
                 sellerName = document.getString("sellerName").orEmpty(),
+                sellerPhotoUrl = document.getString("sellerPhotoUrl").orEmpty(),
                 wasteName = document.getString("wasteName").orEmpty(),
                 category = document.getString("category").orEmpty(),
                 stockKg = stockKg,

@@ -38,10 +38,12 @@ import com.ky.bananacycles.auth.RegisterScreen
 import com.ky.bananacycles.model.WasteItem
 import com.ky.bananacycles.screen.ChatDetailScreen
 import com.ky.bananacycles.screen.ChatScreen
+import com.ky.bananacycles.screen.EditProfileScreen
 import com.ky.bananacycles.screen.HistoryScreen
 import com.ky.bananacycles.screen.MarketScreen
 import com.ky.bananacycles.screen.ProfileScreen
 import com.ky.bananacycles.screen.SettingsScreen
+import com.ky.bananacycles.screen.SellerProfileScreen
 import com.ky.bananacycles.screen.TransactionScreen
 import com.ky.bananacycles.screen.UploadWasteScreen
 import com.ky.bananacycles.screen.WasteDetailScreen
@@ -50,6 +52,7 @@ import com.ky.bananacycles.viewmodel.ChatViewModel
 import com.ky.bananacycles.viewmodel.HistoryViewModel
 import com.ky.bananacycles.viewmodel.OrderViewModel
 import com.ky.bananacycles.viewmodel.ProfileViewModel
+import com.ky.bananacycles.viewmodel.SellerProfileViewModel
 import com.ky.bananacycles.viewmodel.WasteViewModel
 
 private object BottomRoutes {
@@ -73,7 +76,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 var isLoggedIn by remember {
-                    mutableStateOf(auth.currentUser != null)
+                    mutableStateOf(false)
                 }
 
                 var showRegister by remember {
@@ -107,6 +110,7 @@ class MainActivity : ComponentActivity() {
                     val orderViewModel: OrderViewModel = viewModel()
                     val historyViewModel: HistoryViewModel = viewModel()
                     val profileViewModel: ProfileViewModel = viewModel()
+                    val sellerProfileViewModel: SellerProfileViewModel = viewModel()
                     val context = LocalContext.current
 
                     LaunchedEffect(Unit) {
@@ -127,11 +131,19 @@ class MainActivity : ComponentActivity() {
                         mutableStateOf<String?>(null)
                     }
 
+                    var selectedSellerId by remember {
+                        mutableStateOf<String?>(null)
+                    }
+
                     var isSettingsOpen by remember {
                         mutableStateOf(false)
                     }
 
                     var isHistoryOpen by remember {
+                        mutableStateOf(false)
+                    }
+
+                    var isEditProfileOpen by remember {
                         mutableStateOf(false)
                     }
 
@@ -148,8 +160,10 @@ class MainActivity : ComponentActivity() {
                                         selectedRoute = BottomRoutes.MARKET
                                         selectedWaste = null
                                         selectedChatId = null
+                                        selectedSellerId = null
                                         isSettingsOpen = false
                                         isHistoryOpen = false
+                                        isEditProfileOpen = false
                                     },
                                     icon = {
                                         Icon(
@@ -168,8 +182,10 @@ class MainActivity : ComponentActivity() {
                                         selectedRoute = BottomRoutes.SELL
                                         selectedWaste = null
                                         selectedChatId = null
+                                        selectedSellerId = null
                                         isSettingsOpen = false
                                         isHistoryOpen = false
+                                        isEditProfileOpen = false
                                     },
                                     icon = {
                                         Icon(
@@ -188,8 +204,10 @@ class MainActivity : ComponentActivity() {
                                         selectedRoute = BottomRoutes.CHAT
                                         selectedWaste = null
                                         selectedChatId = null
+                                        selectedSellerId = null
                                         isSettingsOpen = false
                                         isHistoryOpen = false
+                                        isEditProfileOpen = false
                                     },
                                     icon = {
                                         ChatNavigationIcon(
@@ -207,8 +225,10 @@ class MainActivity : ComponentActivity() {
                                         selectedRoute = BottomRoutes.TRANSACTION
                                         selectedWaste = null
                                         selectedChatId = null
+                                        selectedSellerId = null
                                         isSettingsOpen = false
                                         isHistoryOpen = false
+                                        isEditProfileOpen = false
                                     },
                                     icon = {
                                         Icon(
@@ -227,8 +247,10 @@ class MainActivity : ComponentActivity() {
                                         selectedRoute = BottomRoutes.PROFILE
                                         selectedWaste = null
                                         selectedChatId = null
+                                        selectedSellerId = null
                                         isSettingsOpen = false
                                         isHistoryOpen = false
+                                        isEditProfileOpen = false
                                     },
                                     icon = {
                                         Icon(
@@ -259,13 +281,25 @@ class MainActivity : ComponentActivity() {
                                             orderViewModel.clearOrders()
                                             historyViewModel.clearHistory()
                                             profileViewModel.clearProfile()
+                                            sellerProfileViewModel.clearSeller()
                                             selectedWaste = null
                                             selectedChatId = null
+                                            selectedSellerId = null
                                             selectedRoute = BottomRoutes.MARKET
                                             isSettingsOpen = false
                                             isHistoryOpen = false
+                                            isEditProfileOpen = false
                                             showRegister = false
                                             isLoggedIn = false
+                                        }
+                                    )
+                                }
+
+                                isEditProfileOpen -> {
+                                    EditProfileScreen(
+                                        viewModel = profileViewModel,
+                                        onBack = {
+                                            isEditProfileOpen = false
                                         }
                                     )
                                 }
@@ -280,8 +314,15 @@ class MainActivity : ComponentActivity() {
                                 }
 
                                 selectedWaste != null -> {
+                                    val latestWaste = (
+                                        wasteViewModel.uiState.marketListings +
+                                            wasteViewModel.uiState.myListings
+                                        )
+                                        .firstOrNull { listing -> listing.id == selectedWaste?.id }
+                                        ?: selectedWaste!!
+
                                     WasteDetailScreen(
-                                        wasteItem = selectedWaste!!,
+                                        wasteItem = latestWaste,
                                         viewModel = wasteViewModel,
                                         onBack = {
                                             selectedWaste = null
@@ -302,6 +343,24 @@ class MainActivity : ComponentActivity() {
                                                     ).show()
                                                 }
                                             )
+                                        },
+                                        onSellerClick = { sellerId ->
+                                            selectedSellerId = sellerId
+                                            selectedWaste = null
+                                        }
+                                    )
+                                }
+
+                                selectedSellerId != null -> {
+                                    SellerProfileScreen(
+                                        sellerId = selectedSellerId!!,
+                                        viewModel = sellerProfileViewModel,
+                                        onBack = {
+                                            selectedSellerId = null
+                                            sellerProfileViewModel.clearSeller()
+                                        },
+                                        onListingClick = { listing ->
+                                            selectedWaste = listing
                                         }
                                     )
                                 }
@@ -354,9 +413,13 @@ class MainActivity : ComponentActivity() {
                                 selectedRoute == BottomRoutes.PROFILE -> {
                                     ProfileScreen(
                                         user = auth.currentUser,
+                                        profile = profileViewModel.uiState.profile,
                                         stats = profileViewModel.uiState.stats,
                                         onSettingsClick = {
                                             isSettingsOpen = true
+                                        },
+                                        onEditProfileClick = {
+                                            isEditProfileOpen = true
                                         },
                                         onHistoryClick = {
                                             isHistoryOpen = true

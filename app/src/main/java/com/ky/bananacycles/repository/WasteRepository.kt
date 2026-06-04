@@ -11,6 +11,7 @@ class WasteRepository(
     fun addListing(
         sellerId: String,
         sellerName: String,
+        sellerPhotoUrl: String,
         wasteName: String,
         category: String,
         stockKg: Double,
@@ -22,6 +23,7 @@ class WasteRepository(
         service.addListing(
             sellerId = sellerId,
             sellerName = sellerName,
+            sellerPhotoUrl = sellerPhotoUrl,
             wasteName = wasteName,
             category = category,
             stockKg = stockKg,
@@ -115,6 +117,18 @@ class WasteRepository(
     ): ListenerRegistration {
         return service.listenUserListings(
             currentUserId = currentUserId,
+            onDataChanged = onDataChanged,
+            onError = onError
+        )
+    }
+
+    fun listenSellerActiveListings(
+        sellerId: String,
+        onDataChanged: (List<WasteItem>) -> Unit,
+        onError: (Exception) -> Unit
+    ): ListenerRegistration {
+        return service.listenSellerActiveListings(
+            sellerId = sellerId,
             onDataChanged = onDataChanged,
             onError = onError
         )

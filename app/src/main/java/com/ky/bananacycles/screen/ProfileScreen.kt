@@ -17,10 +17,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.AddCircle
-import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,6 +40,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.ky.bananacycles.component.UserAvatar
+import com.ky.bananacycles.model.UserProfile
 import com.ky.bananacycles.model.UserStats
 import com.ky.bananacycles.ui.theme.BananaCyclesTheme
 
@@ -48,8 +49,10 @@ import com.ky.bananacycles.ui.theme.BananaCyclesTheme
 @Composable
 fun ProfileScreen(
     user: FirebaseUser? = FirebaseAuth.getInstance().currentUser,
+    profile: UserProfile = UserProfile(),
     stats: UserStats = UserStats(),
     onSettingsClick: () -> Unit = {},
+    onEditProfileClick: () -> Unit = {},
     onHistoryClick: () -> Unit = {}
 ) {
     Scaffold(
@@ -80,10 +83,14 @@ fun ProfileScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             ProfileHeader(
-                userName = user?.displayName
+                userName = profile.displayName.ifBlank {
+                    user?.displayName
                     ?: user?.email?.substringBefore("@")
-                    ?: "BananaCycles User",
-                userEmail = user?.email ?: "No email available"
+                    ?: "BananaCycles User"
+                },
+                userEmail = profile.email.ifBlank { user?.email ?: "No email available" },
+                photoUrl = profile.photoUrl,
+                onEditProfileClick = onEditProfileClick
             )
 
             Card(
@@ -122,43 +129,16 @@ fun ProfileScreen(
                         subtitle = "Manage your waste listings"
                     )
                     ProfileMenuItem(
-                        icon = Icons.Default.Home,
+                        icon = Icons.AutoMirrored.Filled.List,
                         title = "History",
                         subtitle = "View finished purchases and sales",
                         onClick = onHistoryClick
                     )
                     ProfileMenuItem(
-                        icon = Icons.Default.AccountCircle,
-                        title = "Account Settings",
-                        subtitle = "Profile and account preferences",
-                        onClick = onSettingsClick
-                    )
-                }
-            }
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "App Version",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "1.0.0",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold
+                        icon = Icons.Default.Edit,
+                        title = "Edit Profile",
+                        subtitle = "Change your name and profile picture",
+                        onClick = onEditProfileClick
                     )
                 }
             }
@@ -193,7 +173,9 @@ private fun StatItem(
 @Composable
 private fun ProfileHeader(
     userName: String,
-    userEmail: String
+    userEmail: String,
+    photoUrl: String,
+    onEditProfileClick: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -207,20 +189,10 @@ private fun ProfileHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(76.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.AccountCircle,
-                    contentDescription = null,
-                    modifier = Modifier.size(54.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
+            UserAvatar(
+                photoUrl = photoUrl,
+                size = 76.dp
+            )
 
             Column(
                 modifier = Modifier.weight(1f)
@@ -242,6 +214,23 @@ private fun ProfileHeader(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Card(
+                    onClick = onEditProfileClick,
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Text(
+                        text = "Edit Profile",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
             }
         }
     }

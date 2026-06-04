@@ -256,6 +256,10 @@ class ChatFirestoreService(
                 buyerId to buyerName,
                 listing.sellerId to sellerName
             ),
+            "participantPhotoUrls" to mapOf(
+                buyerId to "",
+                listing.sellerId to listing.sellerPhotoUrl
+            ),
             "buyerId" to buyerId,
             "sellerId" to listing.sellerId,
             "listingId" to listing.id,

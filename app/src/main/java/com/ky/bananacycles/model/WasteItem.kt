@@ -8,6 +8,8 @@ data class WasteItem(
 
     val sellerName: String = "",
 
+    val sellerPhotoUrl: String = "",
+
     val wasteName: String = "",
 
     val category: String = "",

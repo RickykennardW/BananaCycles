@@ -168,6 +168,7 @@ class WasteViewModel(
             sellerName = currentUser.displayName
                 ?: currentUser.email
                 ?: "BananaCycles Seller",
+            sellerPhotoUrl = currentUser.photoUrl?.toString().orEmpty(),
             wasteName = wasteName,
             category = category,
             stockKg = stockKg,

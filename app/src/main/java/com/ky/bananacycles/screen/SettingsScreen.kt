@@ -149,6 +149,21 @@ fun SettingsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                ListItem(
+                    headlineContent = {
+                        Text("App Version")
+                    },
+                    supportingContent = {
+                        Text("v1.0.0")
+                    }
+                )
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 onClick = {
                     isLogoutDialogVisible = true
