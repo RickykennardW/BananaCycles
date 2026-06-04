@@ -79,13 +79,17 @@ class WasteRepository(
     }
 
     fun purchaseListing(
-        listingId: String,
+        listing: WasteItem,
+        buyerId: String,
+        buyerName: String,
         quantityKg: Double,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
     ) {
         service.purchaseListing(
-            listingId = listingId,
+            listing = listing,
+            buyerId = buyerId,
+            buyerName = buyerName,
             quantityKg = quantityKg,
             onSuccess = onSuccess,
             onFailure = onFailure

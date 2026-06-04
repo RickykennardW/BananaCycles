@@ -38,6 +38,7 @@ import com.ky.bananacycles.auth.RegisterScreen
 import com.ky.bananacycles.model.WasteItem
 import com.ky.bananacycles.screen.ChatDetailScreen
 import com.ky.bananacycles.screen.ChatScreen
+import com.ky.bananacycles.screen.HistoryScreen
 import com.ky.bananacycles.screen.MarketScreen
 import com.ky.bananacycles.screen.ProfileScreen
 import com.ky.bananacycles.screen.SettingsScreen
@@ -46,6 +47,9 @@ import com.ky.bananacycles.screen.UploadWasteScreen
 import com.ky.bananacycles.screen.WasteDetailScreen
 import com.ky.bananacycles.ui.theme.BananaCyclesTheme
 import com.ky.bananacycles.viewmodel.ChatViewModel
+import com.ky.bananacycles.viewmodel.HistoryViewModel
+import com.ky.bananacycles.viewmodel.OrderViewModel
+import com.ky.bananacycles.viewmodel.ProfileViewModel
 import com.ky.bananacycles.viewmodel.WasteViewModel
 
 private object BottomRoutes {
@@ -69,7 +73,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 var isLoggedIn by remember {
-                    mutableStateOf(false)
+                    mutableStateOf(auth.currentUser != null)
                 }
 
                 var showRegister by remember {
@@ -100,10 +104,14 @@ class MainActivity : ComponentActivity() {
                 } else {
                     val wasteViewModel: WasteViewModel = viewModel()
                     val chatViewModel: ChatViewModel = viewModel()
+                    val orderViewModel: OrderViewModel = viewModel()
+                    val historyViewModel: HistoryViewModel = viewModel()
+                    val profileViewModel: ProfileViewModel = viewModel()
                     val context = LocalContext.current
 
                     LaunchedEffect(Unit) {
                         chatViewModel.listenInbox()
+                        profileViewModel.listenProfileStats()
                     }
 
                     // Bottom navigation uses explicit routes for the five primary app tabs.
@@ -123,6 +131,10 @@ class MainActivity : ComponentActivity() {
                         mutableStateOf(false)
                     }
 
+                    var isHistoryOpen by remember {
+                        mutableStateOf(false)
+                    }
+
                     val totalUnreadChats = chatViewModel.uiState.totalUnreadFor(
                         chatViewModel.currentUserId
                     )
@@ -137,6 +149,7 @@ class MainActivity : ComponentActivity() {
                                         selectedWaste = null
                                         selectedChatId = null
                                         isSettingsOpen = false
+                                        isHistoryOpen = false
                                     },
                                     icon = {
                                         Icon(
@@ -156,6 +169,7 @@ class MainActivity : ComponentActivity() {
                                         selectedWaste = null
                                         selectedChatId = null
                                         isSettingsOpen = false
+                                        isHistoryOpen = false
                                     },
                                     icon = {
                                         Icon(
@@ -175,6 +189,7 @@ class MainActivity : ComponentActivity() {
                                         selectedWaste = null
                                         selectedChatId = null
                                         isSettingsOpen = false
+                                        isHistoryOpen = false
                                     },
                                     icon = {
                                         ChatNavigationIcon(
@@ -193,6 +208,7 @@ class MainActivity : ComponentActivity() {
                                         selectedWaste = null
                                         selectedChatId = null
                                         isSettingsOpen = false
+                                        isHistoryOpen = false
                                     },
                                     icon = {
                                         Icon(
@@ -212,6 +228,7 @@ class MainActivity : ComponentActivity() {
                                         selectedWaste = null
                                         selectedChatId = null
                                         isSettingsOpen = false
+                                        isHistoryOpen = false
                                     },
                                     icon = {
                                         Icon(
@@ -239,12 +256,25 @@ class MainActivity : ComponentActivity() {
                                             auth.signOut()
                                             wasteViewModel.clearListings()
                                             chatViewModel.clearMessages()
+                                            orderViewModel.clearOrders()
+                                            historyViewModel.clearHistory()
+                                            profileViewModel.clearProfile()
                                             selectedWaste = null
                                             selectedChatId = null
                                             selectedRoute = BottomRoutes.MARKET
                                             isSettingsOpen = false
+                                            isHistoryOpen = false
                                             showRegister = false
                                             isLoggedIn = false
+                                        }
+                                    )
+                                }
+
+                                isHistoryOpen -> {
+                                    HistoryScreen(
+                                        viewModel = historyViewModel,
+                                        onBack = {
+                                            isHistoryOpen = false
                                         }
                                     )
                                 }
@@ -316,14 +346,20 @@ class MainActivity : ComponentActivity() {
                                 }
 
                                 selectedRoute == BottomRoutes.TRANSACTION -> {
-                                    TransactionScreen()
+                                    TransactionScreen(
+                                        viewModel = orderViewModel
+                                    )
                                 }
 
                                 selectedRoute == BottomRoutes.PROFILE -> {
                                     ProfileScreen(
                                         user = auth.currentUser,
+                                        stats = profileViewModel.uiState.stats,
                                         onSettingsClick = {
                                             isSettingsOpen = true
+                                        },
+                                        onHistoryClick = {
+                                            isHistoryOpen = true
                                         }
                                     )
                                 }

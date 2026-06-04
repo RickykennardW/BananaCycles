@@ -41,13 +41,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.ky.bananacycles.model.UserStats
 import com.ky.bananacycles.ui.theme.BananaCyclesTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     user: FirebaseUser? = FirebaseAuth.getInstance().currentUser,
-    onSettingsClick: () -> Unit = {}
+    stats: UserStats = UserStats(),
+    onSettingsClick: () -> Unit = {},
+    onHistoryClick: () -> Unit = {}
 ) {
     Scaffold(
         topBar = {
@@ -88,6 +91,30 @@ fun ProfileScreen(
                 shape = RoundedCornerShape(8.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    StatItem(
+                        label = "Total Sales Completed",
+                        value = stats.totalSalesCompleted.toString(),
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatItem(
+                        label = "Total Purchases",
+                        value = stats.totalPurchasesCompleted.toString(),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
                 Column {
                     ProfileMenuItem(
                         icon = Icons.Default.AddCircle,
@@ -96,13 +123,15 @@ fun ProfileScreen(
                     )
                     ProfileMenuItem(
                         icon = Icons.Default.Home,
-                        title = "My Orders",
-                        subtitle = "Order history coming soon"
+                        title = "History",
+                        subtitle = "View finished purchases and sales",
+                        onClick = onHistoryClick
                     )
                     ProfileMenuItem(
                         icon = Icons.Default.AccountCircle,
                         title = "Account Settings",
-                        subtitle = "Profile and account preferences"
+                        subtitle = "Profile and account preferences",
+                        onClick = onSettingsClick
                     )
                 }
             }
@@ -134,6 +163,30 @@ fun ProfileScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun StatItem(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -198,30 +251,38 @@ private fun ProfileHeader(
 private fun ProfileMenuItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
-    subtitle: String
+    subtitle: String,
+    onClick: () -> Unit = {}
 ) {
-    ListItem(
-        headlineContent = {
-            Text(title)
-        },
-        supportingContent = {
-            Text(subtitle)
-        },
-        leadingContent = {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-        },
-        trailingContent = {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.List,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    )
+    Card(
+        onClick = onClick,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        ListItem(
+            headlineContent = {
+                Text(title)
+            },
+            supportingContent = {
+                Text(subtitle)
+            },
+            leadingContent = {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
+            trailingContent = {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.List,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        )
+    }
 }
 
 @Preview(showBackground = true)

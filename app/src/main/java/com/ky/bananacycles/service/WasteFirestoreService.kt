@@ -7,6 +7,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.QuerySnapshot
 import com.ky.bananacycles.model.ListingStatus
+import com.ky.bananacycles.model.OrderStatus
 import com.ky.bananacycles.model.WasteItem
 
 private const val IMAGE_DEBUG_TAG = "IMAGE_DEBUG"
@@ -139,12 +140,15 @@ class WasteFirestoreService(
     }
 
     fun purchaseListing(
-        listingId: String,
+        listing: WasteItem,
+        buyerId: String,
+        buyerName: String,
         quantityKg: Double,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
     ) {
-        val listingDocument = listingsCollection.document(listingId)
+        val listingDocument = listingsCollection.document(listing.id)
+        val orderDocument = firestore.collection("Orders").document()
 
         firestore
             .runTransaction { transaction ->
@@ -179,6 +183,29 @@ class WasteFirestoreService(
                     mapOf(
                         "stockKg" to remainingStock.coerceAtLeast(0.0),
                         "status" to nextStatus
+                    )
+                )
+
+                val pricePerKg = snapshot.getLong("pricePerKg")?.toInt()
+                    ?: listing.pricePerKg
+                val totalPrice = (quantityKg * pricePerKg).toInt()
+
+                transaction.set(
+                    orderDocument,
+                    mapOf(
+                        "orderId" to orderDocument.id,
+                        "listingId" to listing.id,
+                        "buyerId" to buyerId,
+                        "buyerName" to buyerName,
+                        "sellerId" to (snapshot.getString("sellerId") ?: listing.sellerId),
+                        "sellerName" to (snapshot.getString("sellerName") ?: listing.sellerName),
+                        "productName" to (snapshot.getString("wasteName") ?: listing.wasteName),
+                        "productImage" to (snapshot.getString("imageUrl") ?: listing.imageUrl),
+                        "quantityPurchased" to quantityKg,
+                        "pricePerKg" to pricePerKg,
+                        "totalPrice" to totalPrice,
+                        "status" to OrderStatus.PACKING.name,
+                        "createdAt" to FieldValue.serverTimestamp()
                     )
                 )
             }

@@ -311,8 +311,21 @@ class WasteViewModel(
             errorMessage = null
         )
 
+        val currentUser = auth.currentUser
+        val buyerId = currentUser?.uid.orEmpty()
+
+        if (buyerId.isBlank()) {
+            onFailure("User is not signed in.")
+            uiState = uiState.copy(isPurchasing = false)
+            return
+        }
+
         repository.purchaseListing(
-            listingId = listing.id,
+            listing = listing,
+            buyerId = buyerId,
+            buyerName = currentUser?.displayName
+                ?: currentUser?.email
+                ?: "Buyer",
             quantityKg = quantityKg,
             onSuccess = {
                 uiState = uiState.copy(isPurchasing = false)
