@@ -1,5 +1,6 @@
 package com.ky.bananacycles.service
 
+import android.util.Log
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -7,6 +8,8 @@ import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.QuerySnapshot
 import com.ky.bananacycles.model.ListingStatus
 import com.ky.bananacycles.model.WasteItem
+
+private const val IMAGE_DEBUG_TAG = "IMAGE_DEBUG"
 
 class WasteFirestoreService(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
@@ -250,6 +253,12 @@ class WasteFirestoreService(
                 ?: 0
             val status = document.getString("status")
                 ?: if (stockKg > 0.0) ListingStatus.ACTIVE.name else ListingStatus.SOLD_OUT.name
+            val imageUrl = document.getString("imageUrl").orEmpty()
+
+            Log.d(
+                IMAGE_DEBUG_TAG,
+                "Firestore listingId=${document.id}, imageUrl=$imageUrl"
+            )
 
             WasteItem(
                 id = document.getString("listingId") ?: document.id,
@@ -259,7 +268,7 @@ class WasteFirestoreService(
                 category = document.getString("category").orEmpty(),
                 stockKg = stockKg,
                 pricePerKg = pricePerKg,
-                imageUrl = document.getString("imageUrl").orEmpty(),
+                imageUrl = imageUrl,
                 status = status,
                 createdAt = createdAtTimestamp.toMillisOrZero()
             )
