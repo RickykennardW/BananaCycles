@@ -1,7 +1,9 @@
 package com.ky.bananacycles.screen
 
 import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +29,9 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,6 +52,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ky.bananacycles.model.ChatMessage
@@ -64,8 +70,50 @@ fun ChatScreen(
 ) {
     val uiState = viewModel.uiState
     val currentUserId = viewModel.currentUserId
+    val context = LocalContext.current
     var searchQuery by remember {
         mutableStateOf("")
+    }
+    var chatPendingDelete by remember {
+        mutableStateOf<ChatRoom?>(null)
+    }
+
+    chatPendingDelete?.let { room ->
+        AlertDialog(
+            onDismissRequest = {
+                chatPendingDelete = null
+            },
+            title = {
+                Text("Delete Chat")
+            },
+            text = {
+                Text("This chat will be removed from your chat list only.")
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        viewModel.deleteChatForCurrentUser(
+                            chatId = room.id,
+                            onFailure = { message ->
+                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                        chatPendingDelete = null
+                    }
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        chatPendingDelete = null
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     LaunchedEffect(Unit) {
@@ -159,6 +207,9 @@ fun ChatScreen(
                             onClick = {
                                 viewModel.markChatAsRead(room.id)
                                 onChatClick(room.id)
+                            },
+                            onDelete = {
+                                chatPendingDelete = room
                             }
                         )
                     }
@@ -182,6 +233,48 @@ fun ChatDetailScreen(
     val listState = rememberLazyListState()
     var messageText by remember {
         mutableStateOf("")
+    }
+    var messagePendingDelete by remember {
+        mutableStateOf<ChatMessage?>(null)
+    }
+
+    messagePendingDelete?.let { message ->
+        AlertDialog(
+            onDismissRequest = {
+                messagePendingDelete = null
+            },
+            title = {
+                Text("Delete Message")
+            },
+            text = {
+                Text("This message will be replaced with \"This message was deleted\" for everyone.")
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        viewModel.deleteOwnMessage(
+                            chatId = chatId,
+                            message = message,
+                            onFailure = { error ->
+                                Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                        messagePendingDelete = null
+                    }
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        messagePendingDelete = null
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     LaunchedEffect(chatId) {
@@ -267,7 +360,10 @@ fun ChatDetailScreen(
                             isMine = isMine,
                             showSenderHeader = !isMine && startsNewSenderGroup,
                             senderName = chatRoom.participantNames[message.senderId]
-                                ?: chatRoom.otherParticipantName(currentUserId)
+                                ?: chatRoom.otherParticipantName(currentUserId),
+                            onDeleteRequest = {
+                                messagePendingDelete = message
+                            }
                         )
                     }
                 }
@@ -317,74 +413,119 @@ fun ChatDetailScreen(
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun ChatRoomCard(
     room: ChatRoom,
     currentUserId: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDelete: () -> Unit
 ) {
     val unreadCount = room.unreadCounts[currentUserId] ?: 0
+    var isMenuOpen by remember {
+        mutableStateOf(false)
+    }
 
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(
+    Box {
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = {
+                        isMenuOpen = true
+                    }
+                ),
+            shape = RoundedCornerShape(8.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
-            Avatar()
-
-            Column(
-                modifier = Modifier.weight(1f)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = room.otherParticipantName(currentUserId),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = room.lastMessage.ifBlank { "Chat about ${room.listingName}" },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+                Avatar()
 
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Text(
-                    text = room.lastMessageTime.toChatTime(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = room.otherParticipantName(currentUserId),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = room.lastMessage.ifBlank { "Chat about ${room.listingName}" },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
 
-                if (unreadCount > 0) {
-                    UnreadBadge(count = unreadCount)
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = room.lastMessageTime.toChatTime(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    if (unreadCount > 0) {
+                        UnreadBadge(count = unreadCount)
+                    }
                 }
             }
+        }
+
+        DropdownMenu(
+            expanded = isMenuOpen,
+            onDismissRequest = {
+                isMenuOpen = false
+            }
+        ) {
+            DropdownMenuItem(
+                text = {
+                    Text("Delete Chat")
+                },
+                onClick = {
+                    isMenuOpen = false
+                    onDelete()
+                }
+            )
         }
     }
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun MessageBubble(
     message: ChatMessage,
     isMine: Boolean,
     showSenderHeader: Boolean,
-    senderName: String
+    senderName: String,
+    onDeleteRequest: () -> Unit
 ) {
+    var isMenuOpen by remember {
+        mutableStateOf(false)
+    }
+
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = {},
+                onLongClick = {
+                    if (isMine && !message.isDeleted) {
+                        isMenuOpen = true
+                    }
+                }
+            ),
         horizontalArrangement = if (isMine) Arrangement.End else Arrangement.Start
     ) {
         if (!isMine) {
@@ -424,7 +565,9 @@ private fun MessageBubble(
                         )
                     )
                     .background(
-                        if (isMine) {
+                        if (message.isDeleted) {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        } else if (isMine) {
                             MaterialTheme.colorScheme.primary
                         } else {
                             MaterialTheme.colorScheme.surfaceVariant
@@ -437,12 +580,15 @@ private fun MessageBubble(
                 ) {
                     Text(
                         text = message.message,
-                        color = if (isMine) {
+                        color = if (message.isDeleted) {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
+                        } else if (isMine) {
                             MaterialTheme.colorScheme.onPrimary
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontStyle = if (message.isDeleted) FontStyle.Italic else FontStyle.Normal
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -461,13 +607,30 @@ private fun MessageBubble(
                             }
                         )
 
-                        if (isMine) {
+                        if (isMine && !message.isDeleted) {
                             ReadReceipt(
                                 message = message
                             )
                         }
                     }
                 }
+            }
+
+            DropdownMenu(
+                expanded = isMenuOpen,
+                onDismissRequest = {
+                    isMenuOpen = false
+                }
+            ) {
+                DropdownMenuItem(
+                    text = {
+                        Text("Delete Message")
+                    },
+                    onClick = {
+                        isMenuOpen = false
+                        onDeleteRequest()
+                    }
+                )
             }
         }
     }

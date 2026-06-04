@@ -194,6 +194,63 @@ class ChatViewModel(
         }
     }
 
+    fun deleteChatForCurrentUser(
+        chatId: String,
+        onFailure: (String) -> Unit
+    ) {
+        val userId = currentUserId
+        if (chatId.isBlank() || userId.isBlank()) {
+            return
+        }
+
+        val previousRooms = uiState.chatRooms
+        uiState = uiState.copy(
+            chatRooms = uiState.chatRooms.filterNot { room -> room.id == chatId }
+        )
+
+        repository.deleteChatForUser(
+            chatId = chatId,
+            currentUserId = userId,
+            onSuccess = {},
+            onFailure = { error ->
+                val message = error.localizedMessage ?: "Failed to delete chat."
+                uiState = uiState.copy(
+                    chatRooms = previousRooms,
+                    errorMessage = message
+                )
+                onFailure(message)
+            }
+        )
+    }
+
+    fun deleteOwnMessage(
+        chatId: String,
+        message: ChatMessage,
+        onFailure: (String) -> Unit
+    ) {
+        val userId = currentUserId
+        if (
+            chatId.isBlank() ||
+            userId.isBlank() ||
+            message.senderId != userId ||
+            message.isDeleted
+        ) {
+            return
+        }
+
+        repository.deleteMessageForEveryone(
+            chatId = chatId,
+            messageId = message.id,
+            currentUserId = userId,
+            onSuccess = {},
+            onFailure = { error ->
+                val errorMessage = error.localizedMessage ?: "Failed to delete message."
+                uiState = uiState.copy(errorMessage = errorMessage)
+                onFailure(errorMessage)
+            }
+        )
+    }
+
     fun clearMessages() {
         messagesListener?.remove()
         messagesListener = null

@@ -76,4 +76,34 @@ class ChatRepository(
             currentUserId = currentUserId
         )
     }
+
+    fun deleteChatForUser(
+        chatId: String,
+        currentUserId: String,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        service.deleteChatForUser(
+            chatId = chatId,
+            currentUserId = currentUserId,
+            onSuccess = onSuccess,
+            onFailure = onFailure
+        )
+    }
+
+    fun deleteMessageForEveryone(
+        chatId: String,
+        messageId: String,
+        currentUserId: String,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        service.deleteMessageForEveryone(
+            chatId = chatId,
+            messageId = messageId,
+            currentUserId = currentUserId,
+            onSuccess = onSuccess,
+            onFailure = onFailure
+        )
+    }
 }

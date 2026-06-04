@@ -1,8 +1,8 @@
 package com.ky.bananacycles.service
 
 import com.google.firebase.Timestamp
-import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.DocumentReference
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
@@ -24,20 +24,25 @@ class ChatFirestoreService(
         onSuccess: (String) -> Unit,
         onFailure: (Exception) -> Unit
     ) {
-        val chatDocument = chatsCollection.document(
-            "${listing.id}_${buyerId}_${listing.sellerId}"
-        )
-
-        chatDocument
+        chatsCollection
+            .whereArrayContains("participants", buyerId)
             .get()
-            .addOnSuccessListener { document ->
-                if (document.exists()) {
-                    onSuccess(document.id)
+            .addOnSuccessListener { snapshot ->
+                val visibleChat = snapshot
+                    .toChatRooms()
+                    .firstOrNull { room ->
+                        room.listingId == listing.id &&
+                            room.sellerId == listing.sellerId &&
+                            !room.isDeletedForUser(buyerId)
+                    }
+
+                if (visibleChat != null) {
+                    onSuccess(visibleChat.id)
                     return@addOnSuccessListener
                 }
 
                 createChatRoom(
-                    chatDocument = chatDocument,
+                    chatDocument = chatsCollection.document(),
                     listing = listing,
                     buyerId = buyerId,
                     buyerName = buyerName,
@@ -65,6 +70,9 @@ class ChatFirestoreService(
 
                 val rooms = snapshot
                     ?.toChatRooms()
+                    ?.filter { room ->
+                        !room.isDeletedForUser(currentUserId)
+                    }
                     ?.sortedByDescending { room -> room.lastMessageTime.takeIf { it > 0L } ?: room.createdAt }
                     .orEmpty()
 
@@ -113,6 +121,7 @@ class ChatFirestoreService(
                         "senderId" to senderId,
                         "receiverId" to receiverId,
                         "message" to trimmedMessage,
+                        "isDeleted" to false,
                         "status" to MessageStatus.DELIVERED.name,
                         "readAt" to null,
                         "timestamp" to FieldValue.serverTimestamp()
@@ -167,6 +176,68 @@ class ChatFirestoreService(
             }
     }
 
+    fun deleteChatForUser(
+        chatId: String,
+        currentUserId: String,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        chatsCollection
+            .document(chatId)
+            .update(
+                mapOf(
+                    "visibleTo" to FieldValue.arrayRemove(currentUserId),
+                    "deletedForUsers" to FieldValue.arrayUnion(currentUserId),
+                    "unreadCounts.$currentUserId" to 0
+                )
+            )
+            .addOnSuccessListener {
+                onSuccess()
+            }
+            .addOnFailureListener { error ->
+                onFailure(error)
+            }
+    }
+
+    fun deleteMessageForEveryone(
+        chatId: String,
+        messageId: String,
+        currentUserId: String,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        val messageDocument = chatsCollection
+            .document(chatId)
+            .collection("Messages")
+            .document(messageId)
+
+        messageDocument
+            .get()
+            .addOnSuccessListener { snapshot ->
+                if (snapshot.getString("senderId") != currentUserId) {
+                    onFailure(IllegalStateException("You can only delete your own messages."))
+                    return@addOnSuccessListener
+                }
+
+                messageDocument
+                    .update(
+                        mapOf(
+                            "message" to DELETED_MESSAGE_TEXT,
+                            "isDeleted" to true
+                        )
+                    )
+                    .addOnSuccessListener {
+                        onSuccess()
+                    }
+                    .addOnFailureListener { error ->
+                        onFailure(error)
+                    }
+            }
+            .addOnFailureListener { error ->
+                onFailure(error)
+            }
+    }
+
     private fun createChatRoom(
         chatDocument: DocumentReference,
         listing: WasteItem,
@@ -179,6 +250,8 @@ class ChatFirestoreService(
         val data = mapOf(
             "chatId" to chatDocument.id,
             "participants" to listOf(buyerId, listing.sellerId),
+            "visibleTo" to listOf(buyerId, listing.sellerId),
+            "deletedForUsers" to emptyList<String>(),
             "participantNames" to mapOf(
                 buyerId to buyerName,
                 listing.sellerId to sellerName
@@ -209,12 +282,20 @@ class ChatFirestoreService(
     private fun QuerySnapshot.toChatRooms(): List<ChatRoom> {
         return documents.map { document ->
             val participants = document.get("participants") as? List<*>
+            val visibleTo = document.get("visibleTo") as? List<*>
+            val deletedForUsers = document.get("deletedForUsers") as? List<*>
             val participantNames = document.get("participantNames") as? Map<*, *>
             val unreadCounts = document.get("unreadCounts") as? Map<*, *>
 
             ChatRoom(
                 id = document.getString("chatId") ?: document.id,
                 participants = participants
+                    ?.mapNotNull { value -> value as? String }
+                    .orEmpty(),
+                visibleTo = visibleTo
+                    ?.mapNotNull { value -> value as? String }
+                    .orEmpty(),
+                deletedForUsers = deletedForUsers
                     ?.mapNotNull { value -> value as? String }
                     .orEmpty(),
                 participantNames = participantNames
@@ -253,12 +334,22 @@ class ChatFirestoreService(
                 message = document.getString("message").orEmpty(),
                 timestamp = document.getTimestamp("timestamp").toMillisOrZero(),
                 status = document.getString("status") ?: MessageStatus.DELIVERED.name,
-                readAt = document.getTimestamp("readAt").toMillisOrZero()
+                readAt = document.getTimestamp("readAt").toMillisOrZero(),
+                isDeleted = document.getBoolean("isDeleted") ?: false
             )
         }
     }
 
     private fun Timestamp?.toMillisOrZero(): Long {
         return this?.toDate()?.time ?: 0L
+    }
+
+    private fun ChatRoom.isDeletedForUser(userId: String): Boolean {
+        return deletedForUsers.contains(userId) ||
+            (visibleTo.isNotEmpty() && !visibleTo.contains(userId))
+    }
+
+    private companion object {
+        const val DELETED_MESSAGE_TEXT = "This message was deleted"
     }
 }

@@ -3,6 +3,8 @@ package com.ky.bananacycles.model
 data class ChatRoom(
     val id: String = "",
     val participants: List<String> = emptyList(),
+    val visibleTo: List<String> = emptyList(),
+    val deletedForUsers: List<String> = emptyList(),
     val participantNames: Map<String, String> = emptyMap(),
     val buyerId: String = "",
     val sellerId: String = "",
@@ -28,7 +30,9 @@ data class ChatMessage(
 
     val status: String = MessageStatus.DELIVERED.name,
 
-    val readAt: Long = 0L
+    val readAt: Long = 0L,
+
+    val isDeleted: Boolean = false
 
 )
 

@@ -40,6 +40,7 @@ import com.ky.bananacycles.screen.ChatDetailScreen
 import com.ky.bananacycles.screen.ChatScreen
 import com.ky.bananacycles.screen.MarketScreen
 import com.ky.bananacycles.screen.ProfileScreen
+import com.ky.bananacycles.screen.SettingsScreen
 import com.ky.bananacycles.screen.TransactionScreen
 import com.ky.bananacycles.screen.UploadWasteScreen
 import com.ky.bananacycles.screen.WasteDetailScreen
@@ -118,6 +119,10 @@ class MainActivity : ComponentActivity() {
                         mutableStateOf<String?>(null)
                     }
 
+                    var isSettingsOpen by remember {
+                        mutableStateOf(false)
+                    }
+
                     val totalUnreadChats = chatViewModel.uiState.totalUnreadFor(
                         chatViewModel.currentUserId
                     )
@@ -131,6 +136,7 @@ class MainActivity : ComponentActivity() {
                                         selectedRoute = BottomRoutes.MARKET
                                         selectedWaste = null
                                         selectedChatId = null
+                                        isSettingsOpen = false
                                     },
                                     icon = {
                                         Icon(
@@ -149,6 +155,7 @@ class MainActivity : ComponentActivity() {
                                         selectedRoute = BottomRoutes.SELL
                                         selectedWaste = null
                                         selectedChatId = null
+                                        isSettingsOpen = false
                                     },
                                     icon = {
                                         Icon(
@@ -167,6 +174,7 @@ class MainActivity : ComponentActivity() {
                                         selectedRoute = BottomRoutes.CHAT
                                         selectedWaste = null
                                         selectedChatId = null
+                                        isSettingsOpen = false
                                     },
                                     icon = {
                                         ChatNavigationIcon(
@@ -184,6 +192,7 @@ class MainActivity : ComponentActivity() {
                                         selectedRoute = BottomRoutes.TRANSACTION
                                         selectedWaste = null
                                         selectedChatId = null
+                                        isSettingsOpen = false
                                     },
                                     icon = {
                                         Icon(
@@ -202,6 +211,7 @@ class MainActivity : ComponentActivity() {
                                         selectedRoute = BottomRoutes.PROFILE
                                         selectedWaste = null
                                         selectedChatId = null
+                                        isSettingsOpen = false
                                     },
                                     icon = {
                                         Icon(
@@ -220,6 +230,25 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.padding(paddingValues)
                         ) {
                             when {
+                                isSettingsOpen -> {
+                                    SettingsScreen(
+                                        onBack = {
+                                            isSettingsOpen = false
+                                        },
+                                        onLogoutConfirmed = {
+                                            auth.signOut()
+                                            wasteViewModel.clearListings()
+                                            chatViewModel.clearMessages()
+                                            selectedWaste = null
+                                            selectedChatId = null
+                                            selectedRoute = BottomRoutes.MARKET
+                                            isSettingsOpen = false
+                                            showRegister = false
+                                            isLoggedIn = false
+                                        }
+                                    )
+                                }
+
                                 selectedWaste != null -> {
                                     WasteDetailScreen(
                                         wasteItem = selectedWaste!!,
@@ -291,7 +320,12 @@ class MainActivity : ComponentActivity() {
                                 }
 
                                 selectedRoute == BottomRoutes.PROFILE -> {
-                                    ProfileScreen()
+                                    ProfileScreen(
+                                        user = auth.currentUser,
+                                        onSettingsClick = {
+                                            isSettingsOpen = true
+                                        }
+                                    )
                                 }
                             }
                         }
