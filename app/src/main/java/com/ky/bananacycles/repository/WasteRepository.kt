@@ -1,38 +1,55 @@
 package com.ky.bananacycles.repository
 
-import androidx.compose.runtime.mutableStateListOf
+import com.google.firebase.firestore.ListenerRegistration
 import com.ky.bananacycles.model.WasteItem
+import com.ky.bananacycles.service.WasteFirestoreService
 
-object WasteRepository {
+class WasteRepository(
+    private val service: WasteFirestoreService = WasteFirestoreService()
+) {
 
-    val wasteList = mutableStateListOf(
-// Ini adalah comment
-        WasteItem(
-            id = "1",
-            wasteName = "Botol Plastik",
-            category = "Anorganik",
-            weight = 5.0,
-            estimatedPrice = 25000
-        ),
-
-        WasteItem(
-            id = "2",
-            wasteName = "Kardus Bekas",
-            category = "Anorganik",
-            weight = 10.0,
-            estimatedPrice = 50000
-        ),
-
-        WasteItem(
-            id = "3",
-            wasteName = "Daun Kering",
-            category = "Organik",
-            weight = 3.0,
-            estimatedPrice = 6000
+    // Repository keeps Firebase details out of composables and ViewModel callers.
+    fun addListing(
+        wasteName: String,
+        category: String,
+        weight: Double,
+        estimatedPrice: Int,
+        sellerId: String,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        service.addListing(
+            wasteName = wasteName,
+            category = category,
+            weight = weight,
+            estimatedPrice = estimatedPrice,
+            sellerId = sellerId,
+            onSuccess = onSuccess,
+            onFailure = onFailure
         )
-    )
+    }
 
-    fun addWaste(waste: WasteItem) {
-        wasteList.add(waste)
+    fun listenMarketListings(
+        currentUserId: String,
+        onDataChanged: (List<WasteItem>) -> Unit,
+        onError: (Exception) -> Unit
+    ): ListenerRegistration {
+        return service.listenMarketListings(
+            currentUserId = currentUserId,
+            onDataChanged = onDataChanged,
+            onError = onError
+        )
+    }
+
+    fun listenUserListings(
+        currentUserId: String,
+        onDataChanged: (List<WasteItem>) -> Unit,
+        onError: (Exception) -> Unit
+    ): ListenerRegistration {
+        return service.listenUserListings(
+            currentUserId = currentUserId,
+            onDataChanged = onDataChanged,
+            onError = onError
+        )
     }
 }

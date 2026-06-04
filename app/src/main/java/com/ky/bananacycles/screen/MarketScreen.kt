@@ -10,11 +10,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,13 +25,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.ky.bananacycles.component.WasteCard
 import com.ky.bananacycles.model.WasteItem
-import com.ky.bananacycles.repository.WasteRepository
+import com.ky.bananacycles.viewmodel.WasteViewModel
 
 @Composable
 fun MarketScreen(
+    viewModel: WasteViewModel,
     onWasteClick: (WasteItem) -> Unit
 ) {
-// Ini adalah comment
     var searchQuery by remember {
         mutableStateOf("")
     }
@@ -38,9 +40,13 @@ fun MarketScreen(
         mutableStateOf("Semua")
     }
 
-    val wasteList = WasteRepository.wasteList
+    val uiState = viewModel.uiState
 
-    val filteredWasteList = wasteList.filter { waste ->
+    LaunchedEffect(Unit) {
+        viewModel.loadMarketListings()
+    }
+
+    val filteredWasteList = uiState.marketListings.filter { waste ->
 
         val matchesSearch = waste.wasteName.contains(
             searchQuery,
@@ -140,7 +146,23 @@ fun MarketScreen(
             modifier = Modifier.height(16.dp)
         )
 
-        if (filteredWasteList.isEmpty()) {
+        uiState.errorMessage?.let { message ->
+            Text(
+                text = message,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            Spacer(
+                modifier = Modifier.height(12.dp)
+            )
+        }
+
+        if (uiState.isMarketLoading) {
+
+            CircularProgressIndicator()
+
+        } else if (filteredWasteList.isEmpty()) {
 
             Text(
                 text = "Belum ada limbah tersedia",
@@ -151,7 +173,12 @@ fun MarketScreen(
 
             LazyColumn {
 
-                items(filteredWasteList) { waste ->
+                items(
+                    items = filteredWasteList,
+                    key = { waste ->
+                        waste.id
+                    }
+                ) { waste ->
 
                     WasteCard(
                         wasteItem = waste,

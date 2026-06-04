@@ -1,38 +1,38 @@
 package com.ky.bananacycles
 
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import com.google.firebase.FirebaseApp
-import com.google.firebase.firestore.FieldValue
-import com.google.firebase.firestore.FirebaseFirestore
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.firebase.auth.FirebaseAuth
+import com.ky.bananacycles.auth.LoginScreen
+import com.ky.bananacycles.auth.RegisterScreen
+import com.ky.bananacycles.model.WasteItem
+import com.ky.bananacycles.screen.AccountScreen
+import com.ky.bananacycles.screen.MarketScreen
+import com.ky.bananacycles.screen.TransactionScreen
+import com.ky.bananacycles.screen.UploadWasteScreen
+import com.ky.bananacycles.screen.WasteDetailScreen
 import com.ky.bananacycles.ui.theme.BananaCyclesTheme
-
-private const val FIREBASE_TEST_TAG = "FIREBASE_TEST"
+import com.ky.bananacycles.viewmodel.WasteViewModel
 
 class MainActivity : ComponentActivity() {
 
@@ -42,170 +42,171 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             BananaCyclesTheme {
-                FirebaseTestingScreen(
-                    onRunTest = { onResult ->
-                        runFirebaseTest(onResult)
-                    }
-                )
-            }
-        }
-    }
-
-    private fun runFirebaseTest(onResult: (FirebaseTestResult) -> Unit) {
-        onResult(
-            FirebaseTestResult(
-                title = "Testing Firebase...",
-                message = "Menulis data test ke Firestore."
-            )
-        )
-
-        try {
-            val app = FirebaseApp.getInstance()
-            val projectId = app.options.projectId ?: "project id tidak ditemukan"
-            val db = FirebaseFirestore.getInstance()
-            val testDocument = db.collection("firebase_test")
-                .document("main_activity_test")
-
-            val testData = hashMapOf<String, Any>(
-                "message" to "Hello Firebase from BananaCycles",
-                "source" to "MainActivity testing screen",
-                "clientTimestamp" to System.currentTimeMillis(),
-                "serverTimestamp" to FieldValue.serverTimestamp()
-            )
-
-            testDocument
-                .set(testData)
-                .addOnSuccessListener {
-                    Log.d(FIREBASE_TEST_TAG, "Write success. Project: $projectId")
-
-                    testDocument
-                        .get()
-                        .addOnSuccessListener { snapshot ->
-                            val savedMessage = snapshot.getString("message")
-                            Log.d(FIREBASE_TEST_TAG, "Read success: $savedMessage")
-                            onResult(
-                                FirebaseTestResult(
-                                    title = "Firebase berhasil terkoneksi",
-                                    message = "Write dan read Firestore sukses.",
-                                    detail = "Project: $projectId\nCollection: firebase_test\nDocument: main_activity_test\nMessage: $savedMessage"
-                                )
-                            )
-                        }
-                        .addOnFailureListener { error ->
-                            Log.e(FIREBASE_TEST_TAG, "Read failed", error)
-                            onResult(
-                                FirebaseTestResult(
-                                    title = "Write sukses, read gagal",
-                                    message = error.message ?: "Firestore read gagal tanpa pesan error.",
-                                    detail = "Project: $projectId"
-                                )
-                            )
-                        }
+                val auth = remember {
+                    FirebaseAuth.getInstance()
                 }
-                .addOnFailureListener { error ->
-                    Log.e(FIREBASE_TEST_TAG, "Write failed", error)
-                    onResult(
-                        FirebaseTestResult(
-                            title = "Firebase gagal terkoneksi",
-                            message = error.message ?: "Firestore write gagal tanpa pesan error.",
-                            detail = "Cek google-services.json, koneksi internet, dan Firestore rules."
+
+                var isLoggedIn by remember {
+                    mutableStateOf(auth.currentUser != null)
+                }
+
+                var showRegister by remember {
+                    mutableStateOf(false)
+                }
+
+                if (!isLoggedIn) {
+                    if (showRegister) {
+                        RegisterScreen(
+                            onRegisterSuccess = {
+                                isLoggedIn = true
+                                showRegister = false
+                            },
+                            onBackToLogin = {
+                                showRegister = false
+                            }
                         )
-                    )
+                    } else {
+                        LoginScreen(
+                            onLoginSuccess = {
+                                isLoggedIn = true
+                            },
+                            onRegisterClick = {
+                                showRegister = true
+                            }
+                        )
+                    }
+                } else {
+                    val wasteViewModel: WasteViewModel = viewModel()
+
+                    var selectedTab by remember {
+                        mutableStateOf(0)
+                    }
+
+                    var selectedWaste by remember {
+                        mutableStateOf<WasteItem?>(null)
+                    }
+
+                    Scaffold(
+                        bottomBar = {
+                            NavigationBar {
+                                NavigationBarItem(
+                                    selected = selectedTab == 0,
+                                    onClick = {
+                                        selectedTab = 0
+                                        selectedWaste = null
+                                    },
+                                    icon = {
+                                        Icon(
+                                            Icons.Default.Home,
+                                            contentDescription = null
+                                        )
+                                    },
+                                    label = {
+                                        Text("Market")
+                                    }
+                                )
+
+                                NavigationBarItem(
+                                    selected = selectedTab == 1,
+                                    onClick = {
+                                        selectedTab = 1
+                                        selectedWaste = null
+                                    },
+                                    icon = {
+                                        Icon(
+                                            Icons.Default.ShoppingCart,
+                                            contentDescription = null
+                                        )
+                                    },
+                                    label = {
+                                        Text("My Listings")
+                                    }
+                                )
+
+                                NavigationBarItem(
+                                    selected = selectedTab == 2,
+                                    onClick = {
+                                        selectedTab = 2
+                                        selectedWaste = null
+                                    },
+                                    icon = {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.List,
+                                            contentDescription = null
+                                        )
+                                    },
+                                    label = {
+                                        Text("Transaksi")
+                                    }
+                                )
+
+                                NavigationBarItem(
+                                    selected = selectedTab == 3,
+                                    onClick = {
+                                        selectedTab = 3
+                                        selectedWaste = null
+                                    },
+                                    icon = {
+                                        Icon(
+                                            Icons.Default.AccountCircle,
+                                            contentDescription = null
+                                        )
+                                    },
+                                    label = {
+                                        Text("Account")
+                                    }
+                                )
+                            }
+                        }
+                    ) { paddingValues ->
+                        Surface(
+                            modifier = Modifier.padding(paddingValues)
+                        ) {
+                            when {
+                                selectedWaste != null -> {
+                                    WasteDetailScreen(
+                                        wasteItem = selectedWaste!!,
+                                        onBack = {
+                                            selectedWaste = null
+                                        }
+                                    )
+                                }
+
+                                selectedTab == 0 -> {
+                                    MarketScreen(
+                                        viewModel = wasteViewModel,
+                                        onWasteClick = { waste ->
+                                            selectedWaste = waste
+                                        }
+                                    )
+                                }
+
+                                selectedTab == 1 -> {
+                                    UploadWasteScreen(
+                                        viewModel = wasteViewModel
+                                    )
+                                }
+
+                                selectedTab == 2 -> {
+                                    TransactionScreen()
+                                }
+
+                                selectedTab == 3 -> {
+                                    AccountScreen(
+                                        onLogout = {
+                                            wasteViewModel.clearListings()
+                                            auth.signOut()
+                                            selectedTab = 0
+                                            selectedWaste = null
+                                            isLoggedIn = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
-        } catch (error: Exception) {
-            Log.e(FIREBASE_TEST_TAG, "Firebase test crashed", error)
-            onResult(
-                FirebaseTestResult(
-                    title = "Firebase belum siap",
-                    message = error.message ?: "Firebase gagal diinisialisasi.",
-                    detail = "Pastikan google-services.json sesuai package com.ky.bananacycles."
-                )
-            )
+            }
         }
     }
 }
-
-@Composable
-private fun FirebaseTestingScreen(
-    onRunTest: ((FirebaseTestResult) -> Unit) -> Unit
-) {
-    var result by remember {
-        mutableStateOf(
-            FirebaseTestResult(
-                title = "Firebase Test",
-                message = "Menunggu test dijalankan."
-            )
-        )
-    }
-
-    LaunchedEffect(Unit) {
-        onRunTest { result = it }
-    }
-
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = "BananaCycles Firebase Test",
-                style = MaterialTheme.typography.headlineSmall
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = result.title,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = result.message,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    result.detail?.let { detail ->
-                        Text(
-                            text = detail,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                Button(
-                    onClick = {
-                        onRunTest { result = it }
-                    }
-                ) {
-                    Text("Test Lagi")
-                }
-            }
-        }
-    }
-}
-
-private data class FirebaseTestResult(
-    val title: String,
-    val message: String,
-    val detail: String? = null
-)

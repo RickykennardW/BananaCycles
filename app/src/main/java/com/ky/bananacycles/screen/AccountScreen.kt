@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -20,7 +21,9 @@ import com.ky.bananacycles.repository.TransactionRepository
 import com.ky.bananacycles.ui.theme.BananaCyclesTheme
 
 @Composable
-fun AccountScreen() {
+fun AccountScreen(
+    onLogout: () -> Unit = {}
+) {
 
     val totalTransaction =
         TransactionRepository.getTotalTransaction()
@@ -70,6 +73,17 @@ fun AccountScreen() {
             title = "Total Review",
             value = totalReview.toString()
         )
+
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
+
+        Button(
+            onClick = onLogout,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Logout")
+        }
 
     }
 
