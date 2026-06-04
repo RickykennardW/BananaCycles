@@ -53,30 +53,64 @@ class WasteFirestoreService(
         listingId: String,
         wasteName: String,
         category: String,
-        stockKg: Double,
         pricePerKg: Int,
         imageUrl: String,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
     ) {
-        val status = if (stockKg > 0.0) {
-            ListingStatus.ACTIVE.name
-        } else {
-            ListingStatus.SOLD_OUT.name
-        }
-
         val data = mapOf(
             "wasteName" to wasteName,
             "category" to category,
-            "stockKg" to stockKg,
             "pricePerKg" to pricePerKg,
-            "imageUrl" to imageUrl,
-            "status" to status
+            "imageUrl" to imageUrl
         )
 
         listingsCollection
             .document(listingId)
             .update(data)
+            .addOnSuccessListener {
+                onSuccess()
+            }
+            .addOnFailureListener { error ->
+                onFailure(error)
+            }
+    }
+
+    fun adjustStock(
+        listingId: String,
+        stockDeltaKg: Double,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        val listingDocument = listingsCollection.document(listingId)
+
+        // Stock changes are transactional so add/remove actions cannot overwrite each other.
+        firestore
+            .runTransaction { transaction ->
+                val snapshot = transaction.get(listingDocument)
+                val currentStock = snapshot.getDouble("stockKg")
+                    ?: snapshot.getDouble("weight")
+                    ?: 0.0
+                val nextStock = currentStock + stockDeltaKg
+
+                if (nextStock < 0.0) {
+                    throw IllegalArgumentException("Insufficient stock available.")
+                }
+
+                val nextStatus = if (nextStock > 0.0) {
+                    ListingStatus.ACTIVE.name
+                } else {
+                    ListingStatus.SOLD_OUT.name
+                }
+
+                transaction.update(
+                    listingDocument,
+                    mapOf(
+                        "stockKg" to nextStock,
+                        "status" to nextStatus
+                    )
+                )
+            }
             .addOnSuccessListener {
                 onSuccess()
             }
@@ -127,7 +161,7 @@ class WasteFirestoreService(
                 }
 
                 if (quantityKg > currentStock) {
-                    throw IllegalArgumentException("Purchase quantity cannot exceed available stock.")
+                    throw IllegalArgumentException("Requested quantity exceeds available stock.")
                 }
 
                 val remainingStock = currentStock - quantityKg

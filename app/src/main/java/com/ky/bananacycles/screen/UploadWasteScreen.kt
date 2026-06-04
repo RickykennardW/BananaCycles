@@ -74,6 +74,9 @@ fun UploadWasteScreen(
     var isFormOpen by remember {
         mutableStateOf(false)
     }
+    var stockAction by remember {
+        mutableStateOf<StockAction?>(null)
+    }
 
     LaunchedEffect(Unit) {
         viewModel.loadMyListings()
@@ -135,12 +138,58 @@ fun UploadWasteScreen(
                         listingId = listing.id,
                         wasteName = form.wasteName,
                         category = form.category,
-                        stockKg = form.stockKg,
                         pricePerKg = form.pricePerKg,
                         imageUrl = form.imageUrl,
                         onSuccess = onSuccess,
                         onFailure = onFailure
                     )
+                }
+            }
+        )
+    }
+
+    stockAction?.let { action ->
+        StockActionDialog(
+            action = action,
+            isSaving = uiState.isSaving,
+            onDismiss = {
+                stockAction = null
+            },
+            onConfirm = { quantity ->
+                val onSuccess = {
+                    Toast.makeText(
+                        context,
+                        "Stock updated successfully.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    stockAction = null
+                }
+                val onFailure: (String) -> Unit = { message ->
+                    Toast.makeText(
+                        context,
+                        message,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+
+                when (action.type) {
+                    StockActionType.ADD -> {
+                        viewModel.addStock(
+                            listingId = action.listing.id,
+                            quantityKg = quantity,
+                            onSuccess = onSuccess,
+                            onFailure = onFailure
+                        )
+                    }
+
+                    StockActionType.REMOVE -> {
+                        viewModel.removeStock(
+                            listing = action.listing,
+                            quantityKg = quantity,
+                            onSuccess = onSuccess,
+                            onFailure = onFailure
+                        )
+                    }
                 }
             }
         )
@@ -228,6 +277,18 @@ fun UploadWasteScreen(
                                     editingListing = listing
                                     isFormOpen = true
                                 },
+                                onAddStock = {
+                                    stockAction = StockAction(
+                                        listing = listing,
+                                        type = StockActionType.ADD
+                                    )
+                                },
+                                onRemoveStock = {
+                                    stockAction = StockAction(
+                                        listing = listing,
+                                        type = StockActionType.REMOVE
+                                    )
+                                },
                                 onDelete = {
                                     viewModel.deleteListing(
                                         listingId = listing.id,
@@ -261,6 +322,8 @@ private fun SellerListingCard(
     listing: WasteItem,
     isSaving: Boolean,
     onEdit: () -> Unit,
+    onAddStock: () -> Unit,
+    onRemoveStock: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
@@ -302,6 +365,24 @@ private fun SellerListingCard(
                 Text("Stock: ${listing.stockKg} kg")
                 Text("IDR ${listing.pricePerKg} / kg")
                 Text("Status: ${listing.status.toDisplayStatus()}")
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onAddStock,
+                        enabled = !isSaving
+                    ) {
+                        Text("+ Add")
+                    }
+
+                    OutlinedButton(
+                        onClick = onRemoveStock,
+                        enabled = !isSaving
+                    ) {
+                        Text("- Remove")
+                    }
+                }
 
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -431,14 +512,21 @@ private fun ListingFormDialog(
                 OutlinedTextField(
                     value = stock,
                     onValueChange = { input ->
-                        if (input.all { it.isDigit() || it == '.' }) {
+                        if (initialListing == null && input.all { it.isDigit() || it == '.' }) {
                             stock = input
                             errorMessage = null
                         }
                     },
                     label = {
-                        Text("Stock (kg)")
+                        Text(
+                            if (initialListing == null) {
+                                "Initial Stock (kg)"
+                            } else {
+                                "Current Stock (kg)"
+                            }
+                        )
                     },
+                    readOnly = initialListing != null,
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
@@ -486,7 +574,9 @@ private fun ListingFormDialog(
 
                     when {
                         wasteName.isBlank() -> errorMessage = "Waste name is required."
-                        stockValue < 0.0 -> errorMessage = "Stock cannot be negative."
+                        initialListing == null && stockValue <= 0.0 -> {
+                            errorMessage = "Initial stock must be greater than 0 kg."
+                        }
                         priceValue <= 0 -> errorMessage = "Price per kg must be greater than 0."
                         else -> onSave(
                             ListingForm(
@@ -529,6 +619,118 @@ private data class ListingForm(
     val pricePerKg: Int,
     val imageUrl: String
 )
+
+private enum class StockActionType {
+    ADD,
+    REMOVE
+}
+
+private data class StockAction(
+    val listing: WasteItem,
+    val type: StockActionType
+)
+
+@Composable
+private fun StockActionDialog(
+    action: StockAction,
+    isSaving: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (Double) -> Unit
+) {
+    var quantity by remember(action) {
+        mutableStateOf("")
+    }
+    var errorMessage by remember(action) {
+        mutableStateOf<String?>(null)
+    }
+
+    val isAdd = action.type == StockActionType.ADD
+
+    AlertDialog(
+        onDismissRequest = {
+            if (!isSaving) {
+                onDismiss()
+            }
+        },
+        title = {
+            Text(if (isAdd) "Add Stock" else "Remove Stock")
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = if (isAdd) {
+                        "How many kilograms would you like to add?"
+                    } else {
+                        "How many kilograms would you like to remove?"
+                    }
+                )
+
+                Text("Current Stock: ${action.listing.stockKg} kg")
+
+                OutlinedTextField(
+                    value = quantity,
+                    onValueChange = { input ->
+                        if (input.all { it.isDigit() || it == '.' }) {
+                            quantity = input
+                            errorMessage = null
+                        }
+                    },
+                    label = {
+                        Text("Quantity (kg)")
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+
+                errorMessage?.let { message ->
+                    Text(
+                        text = message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val quantityValue = quantity.toDoubleOrNull() ?: 0.0
+                    when {
+                        quantityValue <= 0.0 -> {
+                            errorMessage = "Please enter a stock quantity greater than 0 kg."
+                        }
+
+                        !isAdd && quantityValue > action.listing.stockKg -> {
+                            errorMessage = "Insufficient stock available."
+                        }
+
+                        else -> onConfirm(quantityValue)
+                    }
+                },
+                enabled = !isSaving
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Confirm")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isSaving
+            ) {
+                Text("Cancel")
+            }
+        }
+    )
+}
 
 private fun String.toDisplayCategory(): String {
     return when {

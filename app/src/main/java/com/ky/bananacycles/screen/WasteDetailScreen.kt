@@ -131,7 +131,7 @@ fun WasteDetailScreen(
                     }
 
                     quantityValue > wasteItem.stockKg -> {
-                        errorMessage = "Purchase quantity cannot exceed available stock."
+                        errorMessage = "Requested quantity exceeds available stock."
                     }
 
                     else -> {

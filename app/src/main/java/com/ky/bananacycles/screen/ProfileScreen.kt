@@ -105,7 +105,7 @@ fun ProfileScreen() {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "owned products: ${wasteItem.wasteName} ${wasteItem.weight}",
+                    text = "owned products: ${wasteItem.wasteName} ${wasteItem.stockKg}",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

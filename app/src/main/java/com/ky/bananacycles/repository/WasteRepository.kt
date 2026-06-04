@@ -36,7 +36,6 @@ class WasteRepository(
         listingId: String,
         wasteName: String,
         category: String,
-        stockKg: Double,
         pricePerKg: Int,
         imageUrl: String,
         onSuccess: () -> Unit,
@@ -46,9 +45,22 @@ class WasteRepository(
             listingId = listingId,
             wasteName = wasteName,
             category = category,
-            stockKg = stockKg,
             pricePerKg = pricePerKg,
             imageUrl = imageUrl,
+            onSuccess = onSuccess,
+            onFailure = onFailure
+        )
+    }
+
+    fun adjustStock(
+        listingId: String,
+        stockDeltaKg: Double,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        service.adjustStock(
+            listingId = listingId,
+            stockDeltaKg = stockDeltaKg,
             onSuccess = onSuccess,
             onFailure = onFailure
         )

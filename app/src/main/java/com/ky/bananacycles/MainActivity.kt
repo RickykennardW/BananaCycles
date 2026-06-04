@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 var isLoggedIn by remember {
-                    mutableStateOf(auth.currentUser != null)
+                    mutableStateOf(false)
                 }
 
                 var showRegister by remember {

@@ -154,7 +154,6 @@ class WasteViewModel(
         listingId: String,
         wasteName: String,
         category: String,
-        stockKg: Double,
         pricePerKg: Int,
         imageUrl: String,
         onSuccess: () -> Unit,
@@ -169,7 +168,6 @@ class WasteViewModel(
             listingId = listingId,
             wasteName = wasteName,
             category = category,
-            stockKg = stockKg,
             pricePerKg = pricePerKg,
             imageUrl = imageUrl,
             onSuccess = {
@@ -183,6 +181,49 @@ class WasteViewModel(
                     onFailure = onFailure
                 )
             }
+        )
+    }
+
+    fun addStock(
+        listingId: String,
+        quantityKg: Double,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ) {
+        if (quantityKg <= 0.0) {
+            onFailure("Please enter a stock quantity greater than 0 kg.")
+            return
+        }
+
+        updateStockByDelta(
+            listingId = listingId,
+            stockDeltaKg = quantityKg,
+            onSuccess = onSuccess,
+            onFailure = onFailure
+        )
+    }
+
+    fun removeStock(
+        listing: WasteItem,
+        quantityKg: Double,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ) {
+        if (quantityKg <= 0.0) {
+            onFailure("Please enter a stock quantity greater than 0 kg.")
+            return
+        }
+
+        if (quantityKg > listing.stockKg) {
+            onFailure("Insufficient stock available.")
+            return
+        }
+
+        updateStockByDelta(
+            listingId = listing.id,
+            stockDeltaKg = -quantityKg,
+            onSuccess = onSuccess,
+            onFailure = onFailure
         )
     }
 
@@ -224,7 +265,7 @@ class WasteViewModel(
         }
 
         if (quantityKg > listing.stockKg) {
-            onFailure("Purchase quantity cannot exceed available stock.")
+            onFailure("Requested quantity exceeds available stock.")
             return
         }
 
@@ -280,6 +321,34 @@ class WasteViewModel(
         }
 
         onFailure(message)
+    }
+
+    private fun updateStockByDelta(
+        listingId: String,
+        stockDeltaKg: Double,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ) {
+        uiState = uiState.copy(
+            isSaving = true,
+            errorMessage = null
+        )
+
+        repository.adjustStock(
+            listingId = listingId,
+            stockDeltaKg = stockDeltaKg,
+            onSuccess = {
+                uiState = uiState.copy(isSaving = false)
+                onSuccess()
+            },
+            onFailure = { error ->
+                handleFailure(
+                    fallbackMessage = "Failed to update stock.",
+                    error = error,
+                    onFailure = onFailure
+                )
+            }
+        )
     }
 
     override fun onCleared() {
