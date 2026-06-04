@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.google.firebase.firestore.FirebaseFirestore
 import com.ky.bananacycles.model.ChatMessage
 
 @Composable
@@ -29,6 +30,10 @@ fun ChatScreen() {
         mutableStateOf(
             listOf<ChatMessage>()
         )
+    }
+
+    val firestore = remember {
+        FirebaseFirestore.getInstance()
     }
 
     Column(
@@ -103,10 +108,18 @@ fun ChatScreen() {
                             message = messageText
                         )
 
-                        chatMessages =
-                            chatMessages + newMessage
+                        firestore
+                            .collection("chats")
+                            .document(newMessage.id)
+                            .set(newMessage)
+                            .addOnSuccessListener {
 
-                        messageText = ""
+                                chatMessages =
+                                    chatMessages + newMessage
+
+                                messageText = ""
+
+                            }
 
                     }
 
