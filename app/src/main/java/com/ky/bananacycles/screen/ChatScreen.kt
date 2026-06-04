@@ -1,6 +1,5 @@
 package com.ky.bananacycles.screen
 
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.ky.bananacycles.model.ChatMessage
 
@@ -35,6 +35,10 @@ fun ChatScreen() {
 
     val firestore = remember {
         FirebaseFirestore.getInstance()
+    }
+
+    val auth = remember {
+        FirebaseAuth.getInstance()
     }
 
     LaunchedEffect(Unit) {
@@ -130,10 +134,15 @@ fun ChatScreen() {
 
                     if (messageText.isNotBlank()) {
 
+                        val currentUser = auth.currentUser
+
                         val newMessage = ChatMessage(
                             id = System.currentTimeMillis().toString(),
-                            senderId = "local_user",
-                            senderName = "You",
+                            senderId = currentUser?.uid ?: "",
+                            senderName =
+                                currentUser?.displayName
+                                    ?: currentUser?.email
+                                    ?: "Anonymous",
                             message = messageText
                         )
 
