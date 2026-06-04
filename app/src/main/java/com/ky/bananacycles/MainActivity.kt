@@ -6,33 +6,45 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.ky.bananacycles.auth.LoginScreen
 import com.ky.bananacycles.auth.RegisterScreen
 import com.ky.bananacycles.model.WasteItem
-import com.ky.bananacycles.screen.AccountScreen
+import com.ky.bananacycles.screen.ChatScreen
 import com.ky.bananacycles.screen.MarketScreen
+import com.ky.bananacycles.screen.ProfileScreen
 import com.ky.bananacycles.screen.TransactionScreen
 import com.ky.bananacycles.screen.UploadWasteScreen
 import com.ky.bananacycles.screen.WasteDetailScreen
 import com.ky.bananacycles.ui.theme.BananaCyclesTheme
 import com.ky.bananacycles.viewmodel.WasteViewModel
+
+private object BottomRoutes {
+    const val MARKET = "market"
+    const val SELL = "sell"
+    const val CHAT = "chat"
+    const val TRANSACTION = "transaction"
+    const val PROFILE = "profile"
+}
 
 class MainActivity : ComponentActivity() {
 
@@ -78,8 +90,9 @@ class MainActivity : ComponentActivity() {
                 } else {
                     val wasteViewModel: WasteViewModel = viewModel()
 
-                    var selectedTab by remember {
-                        mutableStateOf(0)
+                    // Bottom navigation uses explicit routes for the five primary app tabs.
+                    var selectedRoute by remember {
+                        mutableStateOf(BottomRoutes.MARKET)
                     }
 
                     var selectedWaste by remember {
@@ -90,9 +103,9 @@ class MainActivity : ComponentActivity() {
                         bottomBar = {
                             NavigationBar {
                                 NavigationBarItem(
-                                    selected = selectedTab == 0,
+                                    selected = selectedRoute == BottomRoutes.MARKET,
                                     onClick = {
-                                        selectedTab = 0
+                                        selectedRoute = BottomRoutes.MARKET
                                         selectedWaste = null
                                     },
                                     icon = {
@@ -102,48 +115,65 @@ class MainActivity : ComponentActivity() {
                                         )
                                     },
                                     label = {
-                                        Text("Market")
+                                        BottomNavigationLabel("Market")
                                     }
                                 )
 
                                 NavigationBarItem(
-                                    selected = selectedTab == 1,
+                                    selected = selectedRoute == BottomRoutes.SELL,
                                     onClick = {
-                                        selectedTab = 1
+                                        selectedRoute = BottomRoutes.SELL
                                         selectedWaste = null
                                     },
                                     icon = {
                                         Icon(
-                                            Icons.Default.ShoppingCart,
+                                            Icons.Default.AddCircle,
                                             contentDescription = null
                                         )
                                     },
                                     label = {
-                                        Text("My Listings")
+                                        BottomNavigationLabel("Sell")
                                     }
                                 )
 
                                 NavigationBarItem(
-                                    selected = selectedTab == 2,
+                                    selected = selectedRoute == BottomRoutes.CHAT,
                                     onClick = {
-                                        selectedTab = 2
+                                        selectedRoute = BottomRoutes.CHAT
                                         selectedWaste = null
                                     },
                                     icon = {
                                         Icon(
-                                            Icons.AutoMirrored.Filled.List,
+                                            Icons.Default.Email,
                                             contentDescription = null
                                         )
                                     },
                                     label = {
-                                        Text("Transaksi")
+                                        BottomNavigationLabel("Chat")
                                     }
                                 )
 
                                 NavigationBarItem(
-                                    selected = selectedTab == 3,
+                                    selected = selectedRoute == BottomRoutes.TRANSACTION,
                                     onClick = {
-                                        selectedTab = 3
+                                        selectedRoute = BottomRoutes.TRANSACTION
+                                        selectedWaste = null
+                                    },
+                                    icon = {
+                                        Icon(
+                                            Icons.Default.List,
+                                            contentDescription = null
+                                        )
+                                    },
+                                    label = {
+                                        BottomNavigationLabel("Orders")
+                                    }
+                                )
+
+                                NavigationBarItem(
+                                    selected = selectedRoute == BottomRoutes.PROFILE,
+                                    onClick = {
+                                        selectedRoute = BottomRoutes.PROFILE
                                         selectedWaste = null
                                     },
                                     icon = {
@@ -153,7 +183,7 @@ class MainActivity : ComponentActivity() {
                                         )
                                     },
                                     label = {
-                                        Text("Account")
+                                        BottomNavigationLabel("Profile")
                                     }
                                 )
                             }
@@ -172,7 +202,7 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
-                                selectedTab == 0 -> {
+                                selectedRoute == BottomRoutes.MARKET -> {
                                     MarketScreen(
                                         viewModel = wasteViewModel,
                                         onWasteClick = { waste ->
@@ -181,26 +211,22 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
-                                selectedTab == 1 -> {
+                                selectedRoute == BottomRoutes.CHAT -> {
+                                    ChatScreen()
+                                }
+
+                                selectedRoute == BottomRoutes.SELL -> {
                                     UploadWasteScreen(
                                         viewModel = wasteViewModel
                                     )
                                 }
 
-                                selectedTab == 2 -> {
+                                selectedRoute == BottomRoutes.TRANSACTION -> {
                                     TransactionScreen()
                                 }
 
-                                selectedTab == 3 -> {
-                                    AccountScreen(
-                                        onLogout = {
-                                            wasteViewModel.clearListings()
-                                            auth.signOut()
-                                            selectedTab = 0
-                                            selectedWaste = null
-                                            isLoggedIn = false
-                                        }
-                                    )
+                                selectedRoute == BottomRoutes.PROFILE -> {
+                                    ProfileScreen()
                                 }
                             }
                         }
@@ -209,4 +235,14 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
+
+@Composable
+private fun BottomNavigationLabel(text: String) {
+    Text(
+        text = text,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Clip
+    )
 }

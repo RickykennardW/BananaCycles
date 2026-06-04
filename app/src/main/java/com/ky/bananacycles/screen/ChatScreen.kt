@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.ky.bananacycles.ui.theme.BananaCyclesTheme
 
 @Composable
-fun TransactionScreen() {
+fun ChatScreen() {
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -29,19 +29,19 @@ fun TransactionScreen() {
             verticalArrangement = Arrangement.Center
         ) {
             Icon(
-                imageVector = Icons.Default.List,
+                imageVector = Icons.Default.Email,
                 contentDescription = null,
                 modifier = Modifier.size(80.dp),
                 tint = MaterialTheme.colorScheme.primary
             )
 
             Text(
-                text = "Transactions",
+                text = "Chats",
                 style = MaterialTheme.typography.headlineMedium
             )
 
             Text(
-                text = "Transaction feature coming soon",
+                text = "Chat feature coming soon",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -51,8 +51,8 @@ fun TransactionScreen() {
 
 @Preview(showBackground = true)
 @Composable
-fun TransactionScreenPreview() {
+fun ChatScreenPreview() {
     BananaCyclesTheme {
-        TransactionScreen()
+        ChatScreen()
     }
 }
