@@ -418,6 +418,15 @@ class MainActivity : ComponentActivity() {
                                         onSettingsClick = {
                                             isSettingsOpen = true
                                         },
+                                        onMyListingsClick = {
+                                            selectedRoute = BottomRoutes.SELL
+                                            selectedWaste = null
+                                            selectedChatId = null
+                                            selectedSellerId = null
+                                            isSettingsOpen = false
+                                            isHistoryOpen = false
+                                            isEditProfileOpen = false
+                                        },
                                         onEditProfileClick = {
                                             isEditProfileOpen = true
                                         },

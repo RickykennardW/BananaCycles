@@ -2,13 +2,17 @@ package com.ky.bananacycles.screen
 
 import android.widget.Toast
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -23,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -33,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.ky.bananacycles.component.ListingImage
@@ -80,146 +86,188 @@ fun WasteDetailScreen(
             )
         }
     ) { paddingValues ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(20.dp)
+                .imePadding()
+                .navigationBarsPadding(),
+            contentPadding = PaddingValues(
+                start = 20.dp,
+                top = 20.dp,
+                end = 20.dp,
+                bottom = 32.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = wasteItem.wasteName,
-                style = MaterialTheme.typography.headlineMedium
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            SellerProfileCard(
-                wasteItem = wasteItem,
-                onClick = {
-                    onSellerClick(wasteItem.sellerId)
-                }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            ListingImage(
-                imageUrl = wasteItem.imageUrl,
-                listingId = wasteItem.id,
-                sellerId = wasteItem.sellerId,
-                height = 220.dp
-            )
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = "Remaining Stock",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "${wasteItem.stockKg.toStockText()} kg",
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            OutlinedTextField(
-                value = quantity,
-                onValueChange = { input ->
-                    if (input.all { it.isDigit() || it == '.' }) {
-                        quantity = input
-                        errorMessage = null
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                label = {
-                    Text("Quantity (kg)")
-                },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-            )
-
-            errorMessage?.let { message ->
-                Spacer(modifier = Modifier.height(8.dp))
+            item {
                 Text(
-                    text = message,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
+                    text = wasteItem.wasteName,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold
                 )
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
-
-            Button(
-                onClick = {
-                    val quantityValue = quantity.toDoubleOrNull() ?: 0.0
-
-                    when {
-                        quantityValue <= 0.0 -> {
-                            errorMessage = "Please enter a purchase quantity greater than 0 kg."
-                        }
-
-                        quantityValue > wasteItem.stockKg -> {
-                            errorMessage = "Requested quantity exceeds available stock."
-                        }
-
-                        else -> {
-                            viewModel.purchaseListing(
-                                listing = wasteItem,
-                                quantityKg = quantityValue,
-                                onSuccess = {
-                                    Toast.makeText(
-                                        context,
-                                        "Purchase completed successfully.",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                    onBack()
-                                },
-                                onFailure = { message ->
-                                    errorMessage = message
-                                }
-                            )
-                        }
+            item {
+                SellerProfileCard(
+                    wasteItem = wasteItem,
+                    onClick = {
+                        onSellerClick(wasteItem.sellerId)
                     }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                enabled = !uiState.isPurchasing
-            ) {
-                if (uiState.isPurchasing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.height(18.dp),
-                        strokeWidth = 2.dp
+                )
+            }
+
+            item {
+                ListingImage(
+                    imageUrl = wasteItem.imageUrl,
+                    listingId = wasteItem.id,
+                    sellerId = wasteItem.sellerId,
+                    height = 220.dp
+                )
+            }
+
+            item {
+                ListingInfoCard(
+                    title = "Remaining Stock",
+                    value = "${wasteItem.stockKg.toStockText()} kg"
+                )
+            }
+
+            item {
+                ListingInfoCard(
+                    title = "Price",
+                    value = "Rp ${wasteItem.pricePerKg.toRupiah()} / kg",
+                    emphasizeValue = true
+                )
+            }
+
+            item {
+                OutlinedTextField(
+                    value = quantity,
+                    onValueChange = { input ->
+                        if (input.all { it.isDigit() || it == '.' }) {
+                            quantity = input
+                            errorMessage = null
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = {
+                        Text("Quantity (kg)")
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+            }
+
+            errorMessage?.let { message ->
+                item {
+                    Text(
+                        text = message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
                     )
-                } else {
-                    Text("Purchase")
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            item {
+                Button(
+                    onClick = {
+                        val quantityValue = quantity.toDoubleOrNull() ?: 0.0
 
-            Button(
-                onClick = {
-                    onChatSeller(wasteItem)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                enabled = !uiState.isPurchasing
-            ) {
-                Text("Chat Seller")
+                        when {
+                            quantityValue <= 0.0 -> {
+                                errorMessage = "Please enter a purchase quantity greater than 0 kg."
+                            }
+
+                            quantityValue > wasteItem.stockKg -> {
+                                errorMessage = "Requested quantity exceeds available stock."
+                            }
+
+                            else -> {
+                                viewModel.purchaseListing(
+                                    listing = wasteItem,
+                                    quantityKg = quantityValue,
+                                    onSuccess = {
+                                        Toast.makeText(
+                                            context,
+                                            "Purchase completed successfully.",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        onBack()
+                                    },
+                                    onFailure = { message ->
+                                        errorMessage = message
+                                    }
+                                )
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    enabled = !uiState.isPurchasing
+                ) {
+                    if (uiState.isPurchasing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.height(18.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("Purchase")
+                    }
+                }
             }
+
+            item {
+                OutlinedButton(
+                    onClick = {
+                        onChatSeller(wasteItem)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    enabled = !uiState.isPurchasing
+                ) {
+                    Text("Chat Seller")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ListingInfoCard(
+    title: String,
+    value: String,
+    emphasizeValue: Boolean = false
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = if (emphasizeValue) {
+                    FontWeight.Bold
+                } else {
+                    FontWeight.Normal
+                },
+                color = if (emphasizeValue) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                }
+            )
         }
     }
 }
@@ -276,4 +324,8 @@ private fun Double.toStockText(): String {
     } else {
         toString()
     }
+}
+
+private fun Int.toRupiah(): String {
+    return "%,d".format(this).replace(",", ".")
 }

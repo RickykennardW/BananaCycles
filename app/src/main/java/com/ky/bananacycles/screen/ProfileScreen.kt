@@ -40,6 +40,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.ky.bananacycles.AppInfo
 import com.ky.bananacycles.component.UserAvatar
 import com.ky.bananacycles.model.UserProfile
 import com.ky.bananacycles.model.UserStats
@@ -52,6 +53,7 @@ fun ProfileScreen(
     profile: UserProfile = UserProfile(),
     stats: UserStats = UserStats(),
     onSettingsClick: () -> Unit = {},
+    onMyListingsClick: () -> Unit = {},
     onEditProfileClick: () -> Unit = {},
     onHistoryClick: () -> Unit = {}
 ) {
@@ -126,7 +128,8 @@ fun ProfileScreen(
                     ProfileMenuItem(
                         icon = Icons.Default.AddCircle,
                         title = "My Listings",
-                        subtitle = "Manage your waste listings"
+                        subtitle = "Manage your waste listings",
+                        onClick = onMyListingsClick
                     )
                     ProfileMenuItem(
                         icon = Icons.AutoMirrored.Filled.List,
@@ -141,6 +144,21 @@ fun ProfileScreen(
                         onClick = onEditProfileClick
                     )
                 }
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Text(
+                    text = AppInfo.VERSION_LABEL,
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

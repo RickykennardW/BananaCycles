@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.ky.bananacycles.AppInfo
 import com.ky.bananacycles.ui.theme.BananaCyclesTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -153,10 +154,7 @@ fun SettingsScreen(
             ) {
                 ListItem(
                     headlineContent = {
-                        Text("App Version")
-                    },
-                    supportingContent = {
-                        Text("v1.0.0")
+                        Text(AppInfo.VERSION_LABEL)
                     }
                 )
             }
