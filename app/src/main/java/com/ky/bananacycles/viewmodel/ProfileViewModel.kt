@@ -15,6 +15,7 @@ data class ProfileUiState(
     val profile: UserProfile = UserProfile(),
     val stats: UserStats = UserStats(),
     val isSaving: Boolean = false,
+    val imageUploadProgress: Float? = null,
     val errorMessage: String? = null
 )
 
@@ -88,6 +89,7 @@ class ProfileViewModel(
 
         uiState = uiState.copy(
             isSaving = true,
+            imageUploadProgress = null,
             errorMessage = null
         )
 
@@ -95,14 +97,21 @@ class ProfileViewModel(
             userId = userId,
             displayName = displayName.trim(),
             imageUri = imageUri,
+            onProgress = { progress ->
+                uiState = uiState.copy(imageUploadProgress = progress)
+            },
             onSuccess = {
-                uiState = uiState.copy(isSaving = false)
+                uiState = uiState.copy(
+                    isSaving = false,
+                    imageUploadProgress = null
+                )
                 onSuccess()
             },
             onFailure = { error ->
                 val message = error.localizedMessage ?: "Failed to update profile."
                 uiState = uiState.copy(
                     isSaving = false,
+                    imageUploadProgress = null,
                     errorMessage = message
                 )
                 onFailure(message)

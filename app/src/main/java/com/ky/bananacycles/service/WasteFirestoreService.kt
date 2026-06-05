@@ -1,11 +1,13 @@
 package com.ky.bananacycles.service
 
+import android.net.Uri
 import android.util.Log
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.QuerySnapshot
+import com.google.firebase.storage.FirebaseStorage
 import com.ky.bananacycles.model.ListingStatus
 import com.ky.bananacycles.model.OrderStatus
 import com.ky.bananacycles.model.WasteItem
@@ -13,7 +15,8 @@ import com.ky.bananacycles.model.WasteItem
 private const val IMAGE_DEBUG_TAG = "IMAGE_DEBUG"
 
 class WasteFirestoreService(
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
+    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
+    private val storage: FirebaseStorage = FirebaseStorage.getInstance()
 ) {
 
     private val listingsCollection = firestore.collection("Listings")
@@ -26,33 +29,49 @@ class WasteFirestoreService(
         category: String,
         stockKg: Double,
         pricePerKg: Int,
-        imageUrl: String,
+        imageUri: Uri?,
+        existingImageUrl: String,
+        onProgress: (Float?) -> Unit,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
     ) {
         val listingDocument = listingsCollection.document()
-        val data = hashMapOf(
-            "listingId" to listingDocument.id,
-            "sellerId" to sellerId,
-            "sellerName" to sellerName,
-            "sellerPhotoUrl" to sellerPhotoUrl,
-            "wasteName" to wasteName,
-            "category" to category,
-            "stockKg" to stockKg,
-            "pricePerKg" to pricePerKg,
-            "imageUrl" to imageUrl,
-            "status" to ListingStatus.ACTIVE.name,
-            "createdAt" to FieldValue.serverTimestamp()
-        )
+        val saveListing: (String) -> Unit = { uploadedImageUrl ->
+            val data = hashMapOf(
+                "listingId" to listingDocument.id,
+                "sellerId" to sellerId,
+                "sellerName" to sellerName,
+                "sellerPhotoUrl" to sellerPhotoUrl,
+                "wasteName" to wasteName,
+                "category" to category,
+                "stockKg" to stockKg,
+                "pricePerKg" to pricePerKg,
+                "imageUrl" to uploadedImageUrl,
+                "status" to ListingStatus.ACTIVE.name,
+                "createdAt" to FieldValue.serverTimestamp()
+            )
 
-        listingDocument
-            .set(data)
-            .addOnSuccessListener {
-                onSuccess()
-            }
-            .addOnFailureListener { error ->
-                onFailure(error)
-            }
+            listingDocument
+                .set(data)
+                .addOnSuccessListener {
+                    onProgress(null)
+                    onSuccess()
+                }
+                .addOnFailureListener { error ->
+                    onProgress(null)
+                    onFailure(error)
+                }
+        }
+
+        uploadProductImageIfNeeded(
+            sellerId = sellerId,
+            listingId = listingDocument.id,
+            imageUri = imageUri,
+            fallbackImageUrl = existingImageUrl,
+            onProgress = onProgress,
+            onSuccess = saveListing,
+            onFailure = onFailure
+        )
     }
 
     fun updateListing(
@@ -60,26 +79,43 @@ class WasteFirestoreService(
         wasteName: String,
         category: String,
         pricePerKg: Int,
-        imageUrl: String,
+        sellerId: String,
+        imageUri: Uri?,
+        existingImageUrl: String,
+        onProgress: (Float?) -> Unit,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
     ) {
-        val data = mapOf(
-            "wasteName" to wasteName,
-            "category" to category,
-            "pricePerKg" to pricePerKg,
-            "imageUrl" to imageUrl
-        )
+        val updateListing: (String) -> Unit = { uploadedImageUrl ->
+            val data = mapOf(
+                "wasteName" to wasteName,
+                "category" to category,
+                "pricePerKg" to pricePerKg,
+                "imageUrl" to uploadedImageUrl
+            )
 
-        listingsCollection
-            .document(listingId)
-            .update(data)
-            .addOnSuccessListener {
-                onSuccess()
-            }
-            .addOnFailureListener { error ->
-                onFailure(error)
-            }
+            listingsCollection
+                .document(listingId)
+                .update(data)
+                .addOnSuccessListener {
+                    onProgress(null)
+                    onSuccess()
+                }
+                .addOnFailureListener { error ->
+                    onProgress(null)
+                    onFailure(error)
+                }
+        }
+
+        uploadProductImageIfNeeded(
+            sellerId = sellerId,
+            listingId = listingId,
+            imageUri = imageUri,
+            fallbackImageUrl = existingImageUrl,
+            onProgress = onProgress,
+            onSuccess = updateListing,
+            onFailure = onFailure
+        )
     }
 
     fun adjustStock(
@@ -334,5 +370,47 @@ class WasteFirestoreService(
 
     private fun Timestamp?.toMillisOrZero(): Long {
         return this?.toDate()?.time ?: 0L
+    }
+
+    private fun uploadProductImageIfNeeded(
+        sellerId: String,
+        listingId: String,
+        imageUri: Uri?,
+        fallbackImageUrl: String,
+        onProgress: (Float?) -> Unit,
+        onSuccess: (String) -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        if (imageUri == null) {
+            onSuccess(fallbackImageUrl)
+            return
+        }
+
+        onProgress(0f)
+        val imageReference = storage.reference
+            .child("product_images/$sellerId/$listingId.jpg")
+
+        imageReference
+            .putFile(imageUri)
+            .addOnProgressListener { snapshot ->
+                val totalBytes = snapshot.totalByteCount
+                if (totalBytes > 0L) {
+                    onProgress(snapshot.bytesTransferred.toFloat() / totalBytes.toFloat())
+                }
+            }
+            .continueWithTask { task ->
+                if (!task.isSuccessful) {
+                    task.exception?.let { throw it }
+                }
+                imageReference.downloadUrl
+            }
+            .addOnSuccessListener { downloadUrl ->
+                onProgress(1f)
+                onSuccess(downloadUrl.toString())
+            }
+            .addOnFailureListener { error ->
+                onProgress(null)
+                onFailure(error)
+            }
     }
 }

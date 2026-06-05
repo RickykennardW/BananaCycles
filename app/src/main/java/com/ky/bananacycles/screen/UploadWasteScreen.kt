@@ -1,6 +1,10 @@
 package com.ky.bananacycles.screen
 
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +29,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
@@ -96,6 +101,7 @@ fun UploadWasteScreen(
         ListingFormDialog(
             initialListing = editingListing,
             isSaving = uiState.isSaving,
+            uploadProgress = uiState.imageUploadProgress,
             onDismiss = {
                 isFormOpen = false
                 editingListing = null
@@ -130,7 +136,8 @@ fun UploadWasteScreen(
                         category = form.category,
                         stockKg = form.stockKg,
                         pricePerKg = form.pricePerKg,
-                        imageUrl = form.imageUrl,
+                        imageUri = form.imageUri,
+                        existingImageUrl = form.existingImageUrl,
                         onSuccess = onSuccess,
                         onFailure = onFailure
                     )
@@ -140,7 +147,9 @@ fun UploadWasteScreen(
                         wasteName = form.wasteName,
                         category = form.category,
                         pricePerKg = form.pricePerKg,
-                        imageUrl = form.imageUrl,
+                        sellerId = listing.sellerId,
+                        imageUri = form.imageUri,
+                        existingImageUrl = form.existingImageUrl,
                         onSuccess = onSuccess,
                         onFailure = onFailure
                     )
@@ -412,6 +421,7 @@ private fun SellerListingCard(
 private fun ListingFormDialog(
     initialListing: WasteItem?,
     isSaving: Boolean,
+    uploadProgress: Float?,
     onDismiss: () -> Unit,
     onSave: (ListingForm) -> Unit
 ) {
@@ -428,8 +438,8 @@ private fun ListingFormDialog(
     var pricePerKg by remember(initialListing) {
         mutableStateOf(initialListing?.pricePerKg?.takeIf { it > 0 }?.toString().orEmpty())
     }
-    var imageUrl by remember(initialListing) {
-        mutableStateOf(initialListing?.imageUrl.orEmpty())
+    var selectedImageUri by remember(initialListing) {
+        mutableStateOf<Uri?>(null)
     }
     var expanded by remember {
         mutableStateOf(false)
@@ -437,6 +447,15 @@ private fun ListingFormDialog(
     var errorMessage by remember {
         mutableStateOf<String?>(null)
     }
+    val imagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            selectedImageUri = uri
+            errorMessage = null
+        }
+    }
+    val previewImage = selectedImageUri?.toString() ?: initialListing?.imageUrl.orEmpty()
 
     AlertDialog(
         onDismissRequest = {
@@ -547,16 +566,71 @@ private fun ListingFormDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
 
-                OutlinedTextField(
-                    value = imageUrl,
-                    onValueChange = {
-                        imageUrl = it
-                    },
-                    label = {
-                        Text("Image URL (optional)")
-                    },
-                    singleLine = true
-                )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        if (previewImage.isNotBlank()) {
+                            ListingImage(
+                                imageUrl = previewImage,
+                                listingId = initialListing?.id ?: "new-listing-preview",
+                                sellerId = initialListing?.sellerId.orEmpty(),
+                                modifier = Modifier
+                                    .fillMaxWidth(),
+                                height = 150.dp
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                imagePicker.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
+                            enabled = !isSaving
+                        ) {
+                            Text(
+                                if (previewImage.isBlank()) {
+                                    "Select From Gallery"
+                                } else {
+                                    "Change Image"
+                                }
+                            )
+                        }
+
+                        Text(
+                            text = "Existing image URLs are still supported for older listings.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                uploadProgress?.let { progress ->
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        LinearProgressIndicator(
+                            progress = { progress.coerceIn(0f, 1f) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text(
+                            text = "Uploading image ${(progress.coerceIn(0f, 1f) * 100).toInt()}%",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
 
                 errorMessage?.let { message ->
                     Text(
@@ -585,7 +659,8 @@ private fun ListingFormDialog(
                                 category = category,
                                 stockKg = stockValue,
                                 pricePerKg = priceValue,
-                                imageUrl = imageUrl.trim()
+                                imageUri = selectedImageUri,
+                                existingImageUrl = initialListing?.imageUrl.orEmpty()
                             )
                         )
                     }
@@ -618,7 +693,8 @@ private data class ListingForm(
     val category: String,
     val stockKg: Double,
     val pricePerKg: Int,
-    val imageUrl: String
+    val imageUri: Uri?,
+    val existingImageUrl: String
 )
 
 private enum class StockActionType {

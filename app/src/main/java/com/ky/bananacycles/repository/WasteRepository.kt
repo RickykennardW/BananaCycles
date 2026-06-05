@@ -1,5 +1,6 @@
 package com.ky.bananacycles.repository
 
+import android.net.Uri
 import com.google.firebase.firestore.ListenerRegistration
 import com.ky.bananacycles.model.WasteItem
 import com.ky.bananacycles.service.WasteFirestoreService
@@ -16,7 +17,9 @@ class WasteRepository(
         category: String,
         stockKg: Double,
         pricePerKg: Int,
-        imageUrl: String,
+        imageUri: Uri?,
+        existingImageUrl: String,
+        onProgress: (Float?) -> Unit,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
     ) {
@@ -28,7 +31,9 @@ class WasteRepository(
             category = category,
             stockKg = stockKg,
             pricePerKg = pricePerKg,
-            imageUrl = imageUrl,
+            imageUri = imageUri,
+            existingImageUrl = existingImageUrl,
+            onProgress = onProgress,
             onSuccess = onSuccess,
             onFailure = onFailure
         )
@@ -39,7 +44,10 @@ class WasteRepository(
         wasteName: String,
         category: String,
         pricePerKg: Int,
-        imageUrl: String,
+        sellerId: String,
+        imageUri: Uri?,
+        existingImageUrl: String,
+        onProgress: (Float?) -> Unit,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
     ) {
@@ -48,7 +56,10 @@ class WasteRepository(
             wasteName = wasteName,
             category = category,
             pricePerKg = pricePerKg,
-            imageUrl = imageUrl,
+            sellerId = sellerId,
+            imageUri = imageUri,
+            existingImageUrl = existingImageUrl,
+            onProgress = onProgress,
             onSuccess = onSuccess,
             onFailure = onFailure
         )

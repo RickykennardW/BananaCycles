@@ -49,6 +49,7 @@ class ProfileFirestoreService(
         userId: String,
         displayName: String,
         imageUri: Uri?,
+        onProgress: (Float?) -> Unit,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
     ) {
@@ -57,15 +58,23 @@ class ProfileFirestoreService(
                 userId = userId,
                 displayName = displayName,
                 photoUrl = auth.currentUser?.photoUrl?.toString().orEmpty(),
+                onProgress = onProgress,
                 onSuccess = onSuccess,
                 onFailure = onFailure
             )
             return
         }
 
+        onProgress(0f)
         val profileImageRef = storage.reference.child("profile_images/$userId.jpg")
         profileImageRef
             .putFile(imageUri)
+            .addOnProgressListener { snapshot ->
+                val totalBytes = snapshot.totalByteCount
+                if (totalBytes > 0L) {
+                    onProgress(snapshot.bytesTransferred.toFloat() / totalBytes.toFloat())
+                }
+            }
             .continueWithTask { task ->
                 if (!task.isSuccessful) {
                     task.exception?.let { throw it }
@@ -77,11 +86,13 @@ class ProfileFirestoreService(
                     userId = userId,
                     displayName = displayName,
                     photoUrl = downloadUrl.toString(),
+                    onProgress = onProgress,
                     onSuccess = onSuccess,
                     onFailure = onFailure
                 )
             }
             .addOnFailureListener { error ->
+                onProgress(null)
                 onFailure(error)
             }
     }
@@ -114,6 +125,7 @@ class ProfileFirestoreService(
         userId: String,
         displayName: String,
         photoUrl: String,
+        onProgress: (Float?) -> Unit,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
     ) {
@@ -146,7 +158,10 @@ class ProfileFirestoreService(
                             userId = userId,
                             displayName = displayName,
                             photoUrl = photoUrl,
-                            onSuccess = onSuccess,
+                            onSuccess = {
+                                onProgress(null)
+                                onSuccess()
+                            },
                             onFailure = onFailure
                         )
                     }
@@ -252,8 +267,10 @@ class ProfileFirestoreService(
                                                             )
                                                         }
 
-                                                        batch.commit()
-                                                            .addOnSuccessListener { onSuccess() }
+                                batch.commit()
+                                                            .addOnSuccessListener {
+                                                                onSuccess()
+                                                            }
                                                             .addOnFailureListener { error -> onFailure(error) }
                                                     }
                                                     .addOnFailureListener { error -> onFailure(error) }

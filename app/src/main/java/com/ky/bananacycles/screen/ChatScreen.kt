@@ -25,7 +25,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -54,7 +53,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.ky.bananacycles.component.UserAvatar
 import com.ky.bananacycles.model.ChatMessage
 import com.ky.bananacycles.model.ChatRoom
 import com.ky.bananacycles.model.MessageStatus
@@ -361,6 +362,7 @@ fun ChatDetailScreen(
                             showSenderHeader = !isMine && startsNewSenderGroup,
                             senderName = chatRoom.participantNames[message.senderId]
                                 ?: chatRoom.otherParticipantName(currentUserId),
+                            senderPhotoUrl = chatRoom.participantPhotoUrls[message.senderId].orEmpty(),
                             onDeleteRequest = {
                                 messagePendingDelete = message
                             }
@@ -445,7 +447,7 @@ private fun ChatRoomCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Avatar()
+                Avatar(photoUrl = room.otherParticipantPhotoUrl(currentUserId))
 
                 Column(
                     modifier = Modifier.weight(1f)
@@ -509,6 +511,7 @@ private fun MessageBubble(
     isMine: Boolean,
     showSenderHeader: Boolean,
     senderName: String,
+    senderPhotoUrl: String,
     onDeleteRequest: () -> Unit
 ) {
     var isMenuOpen by remember {
@@ -531,7 +534,8 @@ private fun MessageBubble(
         if (!isMine) {
             if (showSenderHeader) {
                 Avatar(
-                    modifier = Modifier.size(36.dp)
+                    photoUrl = senderPhotoUrl,
+                    size = 36.dp
                 )
             } else {
                 Spacer(modifier = Modifier.width(36.dp))
@@ -638,20 +642,13 @@ private fun MessageBubble(
 
 @Composable
 private fun Avatar(
-    modifier: Modifier = Modifier.size(48.dp)
+    photoUrl: String = "",
+    size: Dp = 48.dp
 ) {
-    Box(
-        modifier = modifier
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.primaryContainer),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = Icons.Default.Person,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onPrimaryContainer
-        )
-    }
+    UserAvatar(
+        photoUrl = photoUrl,
+        size = size
+    )
 }
 
 @Composable
@@ -698,6 +695,11 @@ private fun UnreadBadge(count: Int) {
 private fun ChatRoom.otherParticipantName(currentUserId: String): String {
     val otherUserId = participants.firstOrNull { userId -> userId != currentUserId }.orEmpty()
     return participantNames[otherUserId].orEmpty().ifBlank { "BananaCycles User" }
+}
+
+private fun ChatRoom.otherParticipantPhotoUrl(currentUserId: String): String {
+    val otherUserId = participants.firstOrNull { userId -> userId != currentUserId }.orEmpty()
+    return participantPhotoUrls[otherUserId].orEmpty()
 }
 
 private fun Long.toChatTime(): String {

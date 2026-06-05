@@ -1,5 +1,6 @@
 package com.ky.bananacycles.viewmodel
 
+import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -21,6 +22,7 @@ data class WasteUiState(
     val isMyListingsRefreshing: Boolean = false,
     val isSaving: Boolean = false,
     val isPurchasing: Boolean = false,
+    val imageUploadProgress: Float? = null,
     val errorMessage: String? = null
 )
 
@@ -146,7 +148,8 @@ class WasteViewModel(
         category: String,
         stockKg: Double,
         pricePerKg: Int,
-        imageUrl: String,
+        imageUri: Uri?,
+        existingImageUrl: String = "",
         onSuccess: () -> Unit,
         onFailure: (String) -> Unit
     ) {
@@ -160,6 +163,7 @@ class WasteViewModel(
 
         uiState = uiState.copy(
             isSaving = true,
+            imageUploadProgress = null,
             errorMessage = null
         )
 
@@ -173,9 +177,16 @@ class WasteViewModel(
             category = category,
             stockKg = stockKg,
             pricePerKg = pricePerKg,
-            imageUrl = imageUrl,
+            imageUri = imageUri,
+            existingImageUrl = existingImageUrl,
+            onProgress = { progress ->
+                uiState = uiState.copy(imageUploadProgress = progress)
+            },
             onSuccess = {
-                uiState = uiState.copy(isSaving = false)
+                uiState = uiState.copy(
+                    isSaving = false,
+                    imageUploadProgress = null
+                )
                 onSuccess()
             },
             onFailure = { error ->
@@ -193,12 +204,15 @@ class WasteViewModel(
         wasteName: String,
         category: String,
         pricePerKg: Int,
-        imageUrl: String,
+        sellerId: String,
+        imageUri: Uri?,
+        existingImageUrl: String,
         onSuccess: () -> Unit,
         onFailure: (String) -> Unit
     ) {
         uiState = uiState.copy(
             isSaving = true,
+            imageUploadProgress = null,
             errorMessage = null
         )
 
@@ -207,9 +221,17 @@ class WasteViewModel(
             wasteName = wasteName,
             category = category,
             pricePerKg = pricePerKg,
-            imageUrl = imageUrl,
+            sellerId = sellerId,
+            imageUri = imageUri,
+            existingImageUrl = existingImageUrl,
+            onProgress = { progress ->
+                uiState = uiState.copy(imageUploadProgress = progress)
+            },
             onSuccess = {
-                uiState = uiState.copy(isSaving = false)
+                uiState = uiState.copy(
+                    isSaving = false,
+                    imageUploadProgress = null
+                )
                 onSuccess()
             },
             onFailure = { error ->
@@ -367,6 +389,7 @@ class WasteViewModel(
         } else {
             uiState.copy(
                 isSaving = false,
+                imageUploadProgress = null,
                 errorMessage = message
             )
         }

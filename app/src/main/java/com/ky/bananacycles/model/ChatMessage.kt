@@ -6,6 +6,7 @@ data class ChatRoom(
     val visibleTo: List<String> = emptyList(),
     val deletedForUsers: List<String> = emptyList(),
     val participantNames: Map<String, String> = emptyMap(),
+    val participantPhotoUrls: Map<String, String> = emptyMap(),
     val buyerId: String = "",
     val sellerId: String = "",
     val listingId: String = "",

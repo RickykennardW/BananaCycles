@@ -289,6 +289,7 @@ class ChatFirestoreService(
             val visibleTo = document.get("visibleTo") as? List<*>
             val deletedForUsers = document.get("deletedForUsers") as? List<*>
             val participantNames = document.get("participantNames") as? Map<*, *>
+            val participantPhotoUrls = document.get("participantPhotoUrls") as? Map<*, *>
             val unreadCounts = document.get("unreadCounts") as? Map<*, *>
 
             ChatRoom(
@@ -307,6 +308,14 @@ class ChatFirestoreService(
                         val userId = key as? String
                         val name = value as? String
                         if (userId != null && name != null) userId to name else null
+                    }
+                    ?.toMap()
+                    .orEmpty(),
+                participantPhotoUrls = participantPhotoUrls
+                    ?.mapNotNull { (key, value) ->
+                        val userId = key as? String
+                        val photoUrl = value as? String
+                        if (userId != null && photoUrl != null) userId to photoUrl else null
                     }
                     ?.toMap()
                     .orEmpty(),
