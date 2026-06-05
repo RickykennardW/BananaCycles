@@ -92,17 +92,17 @@ class ProfileFirestoreService(
         }
 
         onProgress(0f)
-        val imageExtension = selectedImage.mimeType.supportedImageExtension()
         val uploadId = System.currentTimeMillis()
         val profileImageRef = storage.reference
-            .child("profile_images/$userId/profile_$uploadId.$imageExtension")
+            .child("profile_images/$userId/profile.jpg")
         val metadata = StorageMetadata.Builder()
-            .setContentType(selectedImage.mimeType.toSupportedImageContentType() ?: imageExtension.toImageContentType())
+            .setContentType(selectedImage.mimeType.toSupportedImageContentType() ?: "image/jpeg")
+            .setCustomMetadata("updatedAt", uploadId.toString())
             .build()
 
         android.util.Log.d(
             "IMAGE_DEBUG",
-            "Upload Started profile storagePath=${profileImageRef.path}, bucket=${storage.reference.bucket}, contentType=${metadata.contentType}"
+            "Upload Started profile storagePath=${profileImageRef.path}, bucket=${storage.reference.bucket}, contentType=${metadata.contentType}, bytes=${selectedImage.bytes.size}"
         )
 
         profileImageRef.uploadImageWithRetry(
@@ -111,17 +111,74 @@ class ProfileFirestoreService(
             attemptsRemaining = 2,
             onProgress = onProgress,
             onSuccess = { downloadUrl ->
-                updateProfileData(
+                val freshPhotoUrl = downloadUrl.withCacheBust(uploadId)
+                cleanupOldProfileImages(
                     userId = userId,
-                    displayName = displayName,
-                    photoUrl = downloadUrl,
-                    onProgress = onProgress,
-                    onSuccess = onSuccess,
-                    onFailure = onFailure
+                    activePath = profileImageRef.path,
+                    onComplete = {
+                        updateProfileData(
+                            userId = userId,
+                            displayName = displayName,
+                            photoUrl = freshPhotoUrl,
+                            onProgress = onProgress,
+                            onSuccess = onSuccess,
+                            onFailure = onFailure
+                        )
+                    }
                 )
             },
             onFailure = onFailure
         )
+    }
+
+    private fun cleanupOldProfileImages(
+        userId: String,
+        activePath: String,
+        onComplete: () -> Unit
+    ) {
+        val profileFolder = storage.reference.child("profile_images/$userId")
+        android.util.Log.d("IMAGE_DEBUG", "Profile cleanup start userId=$userId activePath=$activePath")
+        profileFolder
+            .listAll()
+            .addOnSuccessListener { result ->
+                val staleItems = result.items.filter { item -> item.path != activePath }
+                if (staleItems.isEmpty()) {
+                    android.util.Log.d("IMAGE_DEBUG", "Profile cleanup no stale images userId=$userId")
+                    onComplete()
+                    return@addOnSuccessListener
+                }
+
+                var pendingDeletes = staleItems.size
+                staleItems.forEach { item ->
+                    item.delete()
+                        .addOnSuccessListener {
+                            android.util.Log.d("IMAGE_DEBUG", "Profile cleanup deleted stale image path=${item.path}")
+                            pendingDeletes -= 1
+                            if (pendingDeletes == 0) {
+                                onComplete()
+                            }
+                        }
+                        .addOnFailureListener { error ->
+                            android.util.Log.e("IMAGE_DEBUG", "Profile cleanup failed path=${item.path}", error)
+                            pendingDeletes -= 1
+                            if (pendingDeletes == 0) {
+                                onComplete()
+                            }
+                        }
+                }
+            }
+            .addOnFailureListener { error ->
+                android.util.Log.e("IMAGE_DEBUG", "Profile cleanup list failed userId=$userId", error)
+                onComplete()
+            }
+    }
+
+    private fun String.withCacheBust(version: Long): String {
+        return if (contains("?")) {
+            "$this&v=$version"
+        } else {
+            "$this?v=$version"
+        }
     }
 
     fun listenUserStats(
@@ -171,6 +228,7 @@ class ProfileFirestoreService(
             .updateProfile(profileUpdates)
             .addOnSuccessListener {
                 val data = mapOf(
+                    "uid" to userId,
                     "userId" to userId,
                     "displayName" to displayName,
                     "email" to currentUser.email.orEmpty(),

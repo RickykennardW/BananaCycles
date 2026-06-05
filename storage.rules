@@ -23,6 +23,14 @@ service firebase.storage {
         && isReasonableImageSize();
     }
 
+    match /profile_images/{userId}.jpg {
+      allow read: if true;
+      allow write: if isSignedIn()
+        && request.auth.uid == userId
+        && isImage()
+        && isReasonableImageSize();
+    }
+
     match /product_images/{userId}/{fileName} {
       allow read: if true;
       allow write: if isSignedIn()
