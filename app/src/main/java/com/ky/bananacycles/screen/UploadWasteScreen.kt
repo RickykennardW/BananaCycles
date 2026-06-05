@@ -1,6 +1,6 @@
 package com.ky.bananacycles.screen
 
-import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -52,6 +52,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.ky.bananacycles.component.ListingImage
 import com.ky.bananacycles.model.ListingStatus
+import com.ky.bananacycles.model.SelectedImage
 import com.ky.bananacycles.model.WasteItem
 import com.ky.bananacycles.viewmodel.WasteViewModel
 
@@ -137,8 +138,7 @@ fun UploadWasteScreen(
                         category = form.category,
                         stockKg = form.stockKg,
                         pricePerKg = form.pricePerKg,
-                        imageUri = form.imageUri,
-                        imageMimeType = form.imageMimeType,
+                        selectedImage = form.selectedImage,
                         existingImageUrl = form.existingImageUrl,
                         onSuccess = onSuccess,
                         onFailure = onFailure
@@ -150,8 +150,7 @@ fun UploadWasteScreen(
                         category = form.category,
                         pricePerKg = form.pricePerKg,
                         sellerId = listing.sellerId,
-                        imageUri = form.imageUri,
-                        imageMimeType = form.imageMimeType,
+                        selectedImage = form.selectedImage,
                         existingImageUrl = form.existingImageUrl,
                         onSuccess = onSuccess,
                         onFailure = onFailure
@@ -442,11 +441,8 @@ private fun ListingFormDialog(
     var pricePerKg by remember(initialListing) {
         mutableStateOf(initialListing?.pricePerKg?.takeIf { it > 0 }?.toString().orEmpty())
     }
-    var selectedImageUri by remember(initialListing) {
-        mutableStateOf<Uri?>(null)
-    }
-    var selectedImageMimeType by remember(initialListing) {
-        mutableStateOf<String?>(null)
+    var selectedImage by remember(initialListing) {
+        mutableStateOf<SelectedImage?>(null)
     }
     var expanded by remember {
         mutableStateOf(false)
@@ -459,12 +455,31 @@ private fun ListingFormDialog(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            selectedImageUri = uri
-            selectedImageMimeType = context.contentResolver.getType(uri)
-            errorMessage = null
+            runCatching {
+                val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
+                val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
+                    input.readBytes()
+                } ?: throw IllegalArgumentException("Unable to read the selected image.")
+
+                SelectedImage(
+                    sourceUri = uri.toString(),
+                    mimeType = mimeType,
+                    bytes = bytes
+                )
+            }.onSuccess { image ->
+                Log.d(
+                    "IMAGE_DEBUG",
+                    "Selected product URI=${image.sourceUri}, mimeType=${image.mimeType}, bytes=${image.bytes.size}"
+                )
+                selectedImage = image
+                errorMessage = null
+            }.onFailure { error ->
+                Log.e("IMAGE_DEBUG", "Selected product image could not be read uri=$uri", error)
+                errorMessage = error.localizedMessage ?: "Unable to read the selected image."
+            }
         }
     }
-    val previewImage = selectedImageUri?.toString() ?: initialListing?.imageUrl.orEmpty()
+    val previewImage = selectedImage?.sourceUri ?: initialListing?.imageUrl.orEmpty()
 
     AlertDialog(
         onDismissRequest = {
@@ -668,8 +683,7 @@ private fun ListingFormDialog(
                                 category = category,
                                 stockKg = stockValue,
                                 pricePerKg = priceValue,
-                                imageUri = selectedImageUri,
-                                imageMimeType = selectedImageMimeType,
+                                selectedImage = selectedImage,
                                 existingImageUrl = initialListing?.imageUrl.orEmpty()
                             )
                         )
@@ -703,8 +717,7 @@ private data class ListingForm(
     val category: String,
     val stockKg: Double,
     val pricePerKg: Int,
-    val imageUri: Uri?,
-    val imageMimeType: String?,
+    val selectedImage: SelectedImage?,
     val existingImageUrl: String
 )
 

@@ -1,7 +1,7 @@
 package com.ky.bananacycles.repository
 
-import android.net.Uri
 import com.google.firebase.firestore.ListenerRegistration
+import com.ky.bananacycles.model.SelectedImage
 import com.ky.bananacycles.model.UserProfile
 import com.ky.bananacycles.model.UserStats
 import com.ky.bananacycles.service.ProfileFirestoreService
@@ -36,8 +36,7 @@ class ProfileRepository(
     fun updateProfile(
         userId: String,
         displayName: String,
-        imageUri: Uri?,
-        imageMimeType: String?,
+        selectedImage: SelectedImage?,
         onProgress: (Float?) -> Unit,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
@@ -45,8 +44,7 @@ class ProfileRepository(
         service.updateProfile(
             userId = userId,
             displayName = displayName,
-            imageUri = imageUri,
-            imageMimeType = imageMimeType,
+            selectedImage = selectedImage,
             onProgress = onProgress,
             onSuccess = onSuccess,
             onFailure = onFailure

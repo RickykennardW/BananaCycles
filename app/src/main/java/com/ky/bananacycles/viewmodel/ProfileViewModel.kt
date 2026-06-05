@@ -1,6 +1,5 @@
 package com.ky.bananacycles.viewmodel
 
-import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -8,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.storage.StorageException
+import com.ky.bananacycles.model.SelectedImage
 import com.ky.bananacycles.model.UserProfile
 import com.ky.bananacycles.model.UserStats
 import com.ky.bananacycles.repository.ProfileRepository
@@ -73,8 +73,7 @@ class ProfileViewModel(
 
     fun updateProfile(
         displayName: String,
-        imageUri: Uri?,
-        imageMimeType: String?,
+        selectedImage: SelectedImage?,
         onSuccess: () -> Unit,
         onFailure: (String) -> Unit
     ) {
@@ -98,8 +97,7 @@ class ProfileViewModel(
         repository.updateProfile(
             userId = userId,
             displayName = displayName.trim(),
-            imageUri = imageUri,
-            imageMimeType = imageMimeType,
+            selectedImage = selectedImage,
             onProgress = { progress ->
                 uiState = uiState.copy(imageUploadProgress = progress)
             },
@@ -124,20 +122,21 @@ class ProfileViewModel(
 
     private fun Exception.toUserFacingMessage(fallbackMessage: String): String {
         return if (this is StorageException) {
+            val detail = "Firebase Storage errorCode=$errorCode, message=${localizedMessage ?: fallbackMessage}"
             when (errorCode) {
                 StorageException.ERROR_OBJECT_NOT_FOUND -> {
-                    "Profile image upload failed because Firebase Storage could not find the uploaded object. Please retry."
+                    "Profile image upload failed: uploaded object was not found. $detail"
                 }
                 StorageException.ERROR_NOT_AUTHENTICATED -> {
-                    "Please log in again before uploading a profile image."
+                    "Profile image upload failed: please log in again. $detail"
                 }
                 StorageException.ERROR_NOT_AUTHORIZED -> {
-                    "Profile image upload is blocked by Firebase Storage rules."
+                    "Profile image upload failed: blocked by Firebase Storage rules. $detail"
                 }
                 StorageException.ERROR_RETRY_LIMIT_EXCEEDED -> {
-                    "Profile image upload timed out. Please check your connection and retry."
+                    "Profile image upload failed: network retry limit exceeded. $detail"
                 }
-                else -> localizedMessage ?: fallbackMessage
+                else -> detail
             }
         } else {
             localizedMessage ?: fallbackMessage

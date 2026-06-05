@@ -1,6 +1,5 @@
 package com.ky.bananacycles.viewmodel
 
-import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -9,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.storage.StorageException
+import com.ky.bananacycles.model.SelectedImage
 import com.ky.bananacycles.model.WasteItem
 import com.ky.bananacycles.repository.WasteRepository
 
@@ -149,8 +149,7 @@ class WasteViewModel(
         category: String,
         stockKg: Double,
         pricePerKg: Int,
-        imageUri: Uri?,
-        imageMimeType: String?,
+        selectedImage: SelectedImage?,
         existingImageUrl: String = "",
         onSuccess: () -> Unit,
         onFailure: (String) -> Unit
@@ -179,8 +178,7 @@ class WasteViewModel(
             category = category,
             stockKg = stockKg,
             pricePerKg = pricePerKg,
-            imageUri = imageUri,
-            imageMimeType = imageMimeType,
+            selectedImage = selectedImage,
             existingImageUrl = existingImageUrl,
             onProgress = { progress ->
                 uiState = uiState.copy(imageUploadProgress = progress)
@@ -208,8 +206,7 @@ class WasteViewModel(
         category: String,
         pricePerKg: Int,
         sellerId: String,
-        imageUri: Uri?,
-        imageMimeType: String?,
+        selectedImage: SelectedImage?,
         existingImageUrl: String,
         onSuccess: () -> Unit,
         onFailure: (String) -> Unit
@@ -226,8 +223,7 @@ class WasteViewModel(
             category = category,
             pricePerKg = pricePerKg,
             sellerId = sellerId,
-            imageUri = imageUri,
-            imageMimeType = imageMimeType,
+            selectedImage = selectedImage,
             existingImageUrl = existingImageUrl,
             onProgress = { progress ->
                 uiState = uiState.copy(imageUploadProgress = progress)
@@ -404,20 +400,21 @@ class WasteViewModel(
 
     private fun Exception.toUserFacingMessage(fallbackMessage: String): String {
         return if (this is StorageException) {
+            val detail = "Firebase Storage errorCode=$errorCode, message=${localizedMessage ?: fallbackMessage}"
             when (errorCode) {
                 StorageException.ERROR_OBJECT_NOT_FOUND -> {
-                    "Image upload failed because Firebase Storage could not find the uploaded object. Please retry."
+                    "Image upload failed: uploaded object was not found. $detail"
                 }
                 StorageException.ERROR_NOT_AUTHENTICATED -> {
-                    "Please log in again before uploading images."
+                    "Image upload failed: please log in again. $detail"
                 }
                 StorageException.ERROR_NOT_AUTHORIZED -> {
-                    "Image upload is blocked by Firebase Storage rules."
+                    "Image upload failed: blocked by Firebase Storage rules. $detail"
                 }
                 StorageException.ERROR_RETRY_LIMIT_EXCEEDED -> {
-                    "Image upload timed out. Please check your connection and retry."
+                    "Image upload failed: network retry limit exceeded. $detail"
                 }
-                else -> localizedMessage ?: fallbackMessage
+                else -> detail
             }
         } else {
             localizedMessage ?: fallbackMessage

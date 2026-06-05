@@ -1,6 +1,6 @@
 package com.ky.bananacycles.screen
 
-import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.ky.bananacycles.component.UserAvatar
+import com.ky.bananacycles.model.SelectedImage
 import com.ky.bananacycles.viewmodel.ProfileViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,11 +54,8 @@ fun EditProfileScreen(
     var displayName by remember {
         mutableStateOf("")
     }
-    var selectedImageUri by remember {
-        mutableStateOf<Uri?>(null)
-    }
-    var selectedImageMimeType by remember {
-        mutableStateOf<String?>(null)
+    var selectedImage by remember {
+        mutableStateOf<SelectedImage?>(null)
     }
 
     LaunchedEffect(uiState.profile.displayName) {
@@ -69,8 +67,33 @@ fun EditProfileScreen(
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
-        selectedImageUri = uri
-        selectedImageMimeType = uri?.let { context.contentResolver.getType(it) }
+        if (uri != null) {
+            runCatching {
+                val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
+                val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
+                    input.readBytes()
+                } ?: throw IllegalArgumentException("Unable to read the selected image.")
+
+                SelectedImage(
+                    sourceUri = uri.toString(),
+                    mimeType = mimeType,
+                    bytes = bytes
+                )
+            }.onSuccess { image ->
+                Log.d(
+                    "IMAGE_DEBUG",
+                    "Selected profile URI=${image.sourceUri}, mimeType=${image.mimeType}, bytes=${image.bytes.size}"
+                )
+                selectedImage = image
+            }.onFailure { error ->
+                Log.e("IMAGE_DEBUG", "Selected profile image could not be read uri=$uri", error)
+                Toast.makeText(
+                    context,
+                    error.localizedMessage ?: "Unable to read the selected image.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
     }
 
     Scaffold(
@@ -111,7 +134,7 @@ fun EditProfileScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     UserAvatar(
-                        photoUrl = selectedImageUri?.toString() ?: uiState.profile.photoUrl,
+                        photoUrl = selectedImage?.sourceUri ?: uiState.profile.photoUrl,
                         size = 104.dp
                     )
 
@@ -164,8 +187,7 @@ fun EditProfileScreen(
                 onClick = {
                     viewModel.updateProfile(
                         displayName = displayName,
-                        imageUri = selectedImageUri,
-                        imageMimeType = selectedImageMimeType,
+                        selectedImage = selectedImage,
                         onSuccess = {
                             Toast.makeText(context, "Profile updated.", Toast.LENGTH_SHORT).show()
                             onBack()

@@ -11,6 +11,7 @@ import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageMetadata
 import com.ky.bananacycles.model.ListingStatus
 import com.ky.bananacycles.model.OrderStatus
+import com.ky.bananacycles.model.SelectedImage
 import com.ky.bananacycles.model.WasteItem
 import java.util.Locale
 
@@ -31,8 +32,7 @@ class WasteFirestoreService(
         category: String,
         stockKg: Double,
         pricePerKg: Int,
-        imageUri: Uri?,
-        imageMimeType: String?,
+        selectedImage: SelectedImage?,
         existingImageUrl: String,
         onProgress: (Float?) -> Unit,
         onSuccess: () -> Unit,
@@ -40,6 +40,7 @@ class WasteFirestoreService(
     ) {
         val listingDocument = listingsCollection.document()
         val saveListing: (String) -> Unit = { uploadedImageUrl ->
+            Log.d(IMAGE_DEBUG_TAG, "Firestore Update start listingId=${listingDocument.id}, imageUrl=$uploadedImageUrl")
             val data = hashMapOf(
                 "listingId" to listingDocument.id,
                 "sellerId" to sellerId,
@@ -57,10 +58,12 @@ class WasteFirestoreService(
             listingDocument
                 .set(data)
                 .addOnSuccessListener {
+                    Log.d(IMAGE_DEBUG_TAG, "Firestore Update success listingId=${listingDocument.id}")
                     onProgress(null)
                     onSuccess()
                 }
                 .addOnFailureListener { error ->
+                    Log.e(IMAGE_DEBUG_TAG, "Firestore Update failure listingId=${listingDocument.id}", error)
                     onProgress(null)
                     onFailure(error)
                 }
@@ -69,8 +72,7 @@ class WasteFirestoreService(
         uploadProductImageIfNeeded(
             sellerId = sellerId,
             listingId = listingDocument.id,
-            imageUri = imageUri,
-            imageMimeType = imageMimeType,
+            selectedImage = selectedImage,
             fallbackImageUrl = existingImageUrl,
             onProgress = onProgress,
             onSuccess = saveListing,
@@ -84,14 +86,14 @@ class WasteFirestoreService(
         category: String,
         pricePerKg: Int,
         sellerId: String,
-        imageUri: Uri?,
-        imageMimeType: String?,
+        selectedImage: SelectedImage?,
         existingImageUrl: String,
         onProgress: (Float?) -> Unit,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
     ) {
         val updateListing: (String) -> Unit = { uploadedImageUrl ->
+            Log.d(IMAGE_DEBUG_TAG, "Firestore Update start listingId=$listingId, imageUrl=$uploadedImageUrl")
             val data = mapOf(
                 "wasteName" to wasteName,
                 "category" to category,
@@ -103,10 +105,12 @@ class WasteFirestoreService(
                 .document(listingId)
                 .update(data)
                 .addOnSuccessListener {
+                    Log.d(IMAGE_DEBUG_TAG, "Firestore Update success listingId=$listingId")
                     onProgress(null)
                     onSuccess()
                 }
                 .addOnFailureListener { error ->
+                    Log.e(IMAGE_DEBUG_TAG, "Firestore Update failure listingId=$listingId", error)
                     onProgress(null)
                     onFailure(error)
                 }
@@ -115,8 +119,7 @@ class WasteFirestoreService(
         uploadProductImageIfNeeded(
             sellerId = sellerId,
             listingId = listingId,
-            imageUri = imageUri,
-            imageMimeType = imageMimeType,
+            selectedImage = selectedImage,
             fallbackImageUrl = existingImageUrl,
             onProgress = onProgress,
             onSuccess = updateListing,
@@ -381,19 +384,26 @@ class WasteFirestoreService(
     private fun uploadProductImageIfNeeded(
         sellerId: String,
         listingId: String,
-        imageUri: Uri?,
-        imageMimeType: String?,
+        selectedImage: SelectedImage?,
         fallbackImageUrl: String,
         onProgress: (Float?) -> Unit,
         onSuccess: (String) -> Unit,
         onFailure: (Exception) -> Unit
     ) {
-        if (imageUri == null) {
+        if (selectedImage == null) {
+            Log.d(IMAGE_DEBUG_TAG, "No new product image selected listingId=$listingId; keeping imageUrl=$fallbackImageUrl")
             onSuccess(fallbackImageUrl)
             return
         }
 
+        val imageUri = Uri.parse(selectedImage.sourceUri)
+        Log.d(
+            IMAGE_DEBUG_TAG,
+            "Selected product URI=${selectedImage.sourceUri}, mimeType=${selectedImage.mimeType}, bytes=${selectedImage.bytes.size}, listingId=$listingId"
+        )
+
         if (imageUri.isRemoteImageUrl()) {
+            Log.d(IMAGE_DEBUG_TAG, "Product image is remote URL. Skipping Storage upload url=$imageUri")
             onSuccess(imageUri.toString())
             return
         }
@@ -404,16 +414,21 @@ class WasteFirestoreService(
         }
 
         onProgress(0f)
-        val imageExtension = imageUri.supportedImageExtension(imageMimeType)
+        val imageExtension = selectedImage.mimeType.supportedImageExtension()
         val uploadId = System.currentTimeMillis()
         val imageReference = storage.reference
             .child("product_images/$sellerId/${listingId}_$uploadId.$imageExtension")
         val metadata = StorageMetadata.Builder()
-            .setContentType(imageMimeType.toSupportedImageContentType() ?: imageExtension.toImageContentType())
+            .setContentType(selectedImage.mimeType.toSupportedImageContentType() ?: imageExtension.toImageContentType())
             .build()
 
+        Log.d(
+            IMAGE_DEBUG_TAG,
+            "Upload Started product storagePath=${imageReference.path}, bucket=${storage.reference.bucket}, contentType=${metadata.contentType}"
+        )
+
         imageReference.uploadImageWithRetry(
-            imageUri = imageUri,
+            selectedImage = selectedImage,
             metadata = metadata,
             attemptsRemaining = 2,
             onProgress = onProgress,
@@ -423,14 +438,14 @@ class WasteFirestoreService(
     }
 
     private fun com.google.firebase.storage.StorageReference.uploadImageWithRetry(
-        imageUri: Uri,
+        selectedImage: SelectedImage,
         metadata: StorageMetadata,
         attemptsRemaining: Int,
         onProgress: (Float?) -> Unit,
         onSuccess: (String) -> Unit,
         onFailure: (Exception) -> Unit
     ) {
-        putFile(imageUri, metadata)
+        putBytes(selectedImage.bytes, metadata)
             .addOnProgressListener { snapshot ->
                 val totalBytes = snapshot.totalByteCount
                 if (totalBytes > 0L) {
@@ -439,18 +454,35 @@ class WasteFirestoreService(
             }
             .continueWithTask { task ->
                 if (!task.isSuccessful) {
+                    Log.e(IMAGE_DEBUG_TAG, "Upload Failure storagePath=$path", task.exception)
                     task.exception?.let { throw it }
                 }
+                Log.d(IMAGE_DEBUG_TAG, "Upload Success storagePath=$path; verifying metadata")
+                this.metadata
+            }
+            .continueWithTask { task ->
+                if (!task.isSuccessful) {
+                    Log.e(IMAGE_DEBUG_TAG, "Storage metadata verification failed storagePath=$path", task.exception)
+                    task.exception?.let { throw it }
+                }
+                Log.d(IMAGE_DEBUG_TAG, "Storage metadata verified storagePath=$path size=${task.result.sizeBytes} contentType=${task.result.contentType}")
+                Log.d(IMAGE_DEBUG_TAG, "Download URL Request storagePath=$path")
                 downloadUrl
             }
             .addOnSuccessListener { downloadUrl ->
+                Log.d(IMAGE_DEBUG_TAG, "Download URL Success storagePath=$path url=$downloadUrl")
                 onProgress(1f)
                 onSuccess(downloadUrl.toString())
             }
             .addOnFailureListener { error ->
+                Log.e(
+                    IMAGE_DEBUG_TAG,
+                    "Download URL Failure or upload chain failure storagePath=$path attemptsRemaining=$attemptsRemaining",
+                    error
+                )
                 if (attemptsRemaining > 0) {
                     uploadImageWithRetry(
-                        imageUri = imageUri,
+                        selectedImage = selectedImage,
                         metadata = metadata,
                         attemptsRemaining = attemptsRemaining - 1,
                         onProgress = onProgress,
@@ -474,19 +506,10 @@ class WasteFirestoreService(
         return normalizedScheme == "content" || normalizedScheme == "file"
     }
 
-    private fun Uri.supportedImageExtension(mimeType: String?): String {
-        when (mimeType.toSupportedImageContentType()) {
-            "image/png" -> return "png"
-            "image/webp" -> return "webp"
-            "image/jpeg" -> return "jpg"
-        }
-
-        val path = toString().substringBefore("?").lowercase(Locale.US)
-        return when {
-            path.endsWith(".jpeg") -> "jpg"
-            path.endsWith(".jpg") -> "jpg"
-            path.endsWith(".png") -> "png"
-            path.endsWith(".webp") -> "webp"
+    private fun String.supportedImageExtension(): String {
+        return when (toSupportedImageContentType()) {
+            "image/png" -> "png"
+            "image/webp" -> "webp"
             else -> "jpg"
         }
     }

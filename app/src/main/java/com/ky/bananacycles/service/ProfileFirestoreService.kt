@@ -8,6 +8,7 @@ import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageMetadata
+import com.ky.bananacycles.model.SelectedImage
 import com.ky.bananacycles.model.UserProfile
 import com.ky.bananacycles.model.UserStats
 import java.util.Locale
@@ -50,13 +51,12 @@ class ProfileFirestoreService(
     fun updateProfile(
         userId: String,
         displayName: String,
-        imageUri: Uri?,
-        imageMimeType: String?,
+        selectedImage: SelectedImage?,
         onProgress: (Float?) -> Unit,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
     ) {
-        if (imageUri == null) {
+        if (selectedImage == null) {
             updateProfileData(
                 userId = userId,
                 displayName = displayName,
@@ -67,6 +67,12 @@ class ProfileFirestoreService(
             )
             return
         }
+
+        val imageUri = Uri.parse(selectedImage.sourceUri)
+        android.util.Log.d(
+            "IMAGE_DEBUG",
+            "Selected profile URI=${selectedImage.sourceUri}, mimeType=${selectedImage.mimeType}, bytes=${selectedImage.bytes.size}, userId=$userId"
+        )
 
         if (imageUri.isRemoteImageUrl()) {
             updateProfileData(
@@ -86,16 +92,21 @@ class ProfileFirestoreService(
         }
 
         onProgress(0f)
-        val imageExtension = imageUri.supportedImageExtension(imageMimeType)
+        val imageExtension = selectedImage.mimeType.supportedImageExtension()
         val uploadId = System.currentTimeMillis()
         val profileImageRef = storage.reference
             .child("profile_images/$userId/profile_$uploadId.$imageExtension")
         val metadata = StorageMetadata.Builder()
-            .setContentType(imageMimeType.toSupportedImageContentType() ?: imageExtension.toImageContentType())
+            .setContentType(selectedImage.mimeType.toSupportedImageContentType() ?: imageExtension.toImageContentType())
             .build()
 
+        android.util.Log.d(
+            "IMAGE_DEBUG",
+            "Upload Started profile storagePath=${profileImageRef.path}, bucket=${storage.reference.bucket}, contentType=${metadata.contentType}"
+        )
+
         profileImageRef.uploadImageWithRetry(
-            imageUri = imageUri,
+            selectedImage = selectedImage,
             metadata = metadata,
             attemptsRemaining = 2,
             onProgress = onProgress,
@@ -166,10 +177,12 @@ class ProfileFirestoreService(
                     "photoUrl" to photoUrl
                 )
 
+                android.util.Log.d("IMAGE_DEBUG", "Firestore Update start profile userId=$userId, photoUrl=$photoUrl")
                 profilesCollection
                     .document(userId)
                     .set(data, SetOptions.merge())
                     .addOnSuccessListener {
+                        android.util.Log.d("IMAGE_DEBUG", "Firestore Update success profile userId=$userId")
                         propagateProfileChanges(
                             userId = userId,
                             displayName = displayName,
@@ -182,6 +195,7 @@ class ProfileFirestoreService(
                         )
                     }
                     .addOnFailureListener { error ->
+                        android.util.Log.e("IMAGE_DEBUG", "Firestore Update failure profile userId=$userId", error)
                         onFailure(error)
                     }
             }
@@ -305,14 +319,14 @@ class ProfileFirestoreService(
     }
 
     private fun com.google.firebase.storage.StorageReference.uploadImageWithRetry(
-        imageUri: Uri,
+        selectedImage: SelectedImage,
         metadata: StorageMetadata,
         attemptsRemaining: Int,
         onProgress: (Float?) -> Unit,
         onSuccess: (String) -> Unit,
         onFailure: (Exception) -> Unit
     ) {
-        putFile(imageUri, metadata)
+        putBytes(selectedImage.bytes, metadata)
             .addOnProgressListener { snapshot ->
                 val totalBytes = snapshot.totalByteCount
                 if (totalBytes > 0L) {
@@ -321,18 +335,31 @@ class ProfileFirestoreService(
             }
             .continueWithTask { task ->
                 if (!task.isSuccessful) {
+                    android.util.Log.e("IMAGE_DEBUG", "Upload Failure profile storagePath=$path", task.exception)
                     task.exception?.let { throw it }
                 }
+                android.util.Log.d("IMAGE_DEBUG", "Upload Success profile storagePath=$path; verifying metadata")
+                this.metadata
+            }
+            .continueWithTask { task ->
+                if (!task.isSuccessful) {
+                    android.util.Log.e("IMAGE_DEBUG", "Storage metadata verification failed profile storagePath=$path", task.exception)
+                    task.exception?.let { throw it }
+                }
+                android.util.Log.d("IMAGE_DEBUG", "Storage metadata verified profile storagePath=$path size=${task.result.sizeBytes} contentType=${task.result.contentType}")
+                android.util.Log.d("IMAGE_DEBUG", "Download URL Request profile storagePath=$path")
                 downloadUrl
             }
             .addOnSuccessListener { downloadUrl ->
+                android.util.Log.d("IMAGE_DEBUG", "Download URL Success profile storagePath=$path url=$downloadUrl")
                 onProgress(1f)
                 onSuccess(downloadUrl.toString())
             }
             .addOnFailureListener { error ->
+                android.util.Log.e("IMAGE_DEBUG", "Download URL Failure or upload chain failure profile storagePath=$path attemptsRemaining=$attemptsRemaining", error)
                 if (attemptsRemaining > 0) {
                     uploadImageWithRetry(
-                        imageUri = imageUri,
+                        selectedImage = selectedImage,
                         metadata = metadata,
                         attemptsRemaining = attemptsRemaining - 1,
                         onProgress = onProgress,
@@ -356,19 +383,10 @@ class ProfileFirestoreService(
         return normalizedScheme == "content" || normalizedScheme == "file"
     }
 
-    private fun Uri.supportedImageExtension(mimeType: String?): String {
-        when (mimeType.toSupportedImageContentType()) {
-            "image/png" -> return "png"
-            "image/webp" -> return "webp"
-            "image/jpeg" -> return "jpg"
-        }
-
-        val path = toString().substringBefore("?").lowercase(Locale.US)
-        return when {
-            path.endsWith(".jpeg") -> "jpg"
-            path.endsWith(".jpg") -> "jpg"
-            path.endsWith(".png") -> "png"
-            path.endsWith(".webp") -> "webp"
+    private fun String.supportedImageExtension(): String {
+        return when (toSupportedImageContentType()) {
+            "image/png" -> "png"
+            "image/webp" -> "webp"
             else -> "jpg"
         }
     }
