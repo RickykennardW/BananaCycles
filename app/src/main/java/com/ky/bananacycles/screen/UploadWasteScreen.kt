@@ -55,6 +55,8 @@ import com.ky.bananacycles.model.ListingStatus
 import com.ky.bananacycles.model.SelectedImage
 import com.ky.bananacycles.model.WasteItem
 import com.ky.bananacycles.viewmodel.WasteViewModel
+import java.net.URI
+import java.util.Locale
 
 private enum class SellFilter(
     val label: String
@@ -444,6 +446,9 @@ private fun ListingFormDialog(
     var selectedImage by remember(initialListing) {
         mutableStateOf<SelectedImage?>(null)
     }
+    var imageUrl by remember(initialListing) {
+        mutableStateOf("")
+    }
     var expanded by remember {
         mutableStateOf(false)
     }
@@ -472,6 +477,7 @@ private fun ListingFormDialog(
                     "Selected product URI=${image.sourceUri}, mimeType=${image.mimeType}, bytes=${image.bytes.size}"
                 )
                 selectedImage = image
+                imageUrl = ""
                 errorMessage = null
             }.onFailure { error ->
                 Log.e("IMAGE_DEBUG", "Selected product image could not be read uri=$uri", error)
@@ -479,7 +485,9 @@ private fun ListingFormDialog(
             }
         }
     }
-    val previewImage = selectedImage?.sourceUri ?: initialListing?.imageUrl.orEmpty()
+    val previewImage = imageUrl.takeIf { it.isNotBlank() }
+        ?: selectedImage?.sourceUri
+        ?: initialListing?.imageUrl.orEmpty()
 
     AlertDialog(
         onDismissRequest = {
@@ -625,7 +633,7 @@ private fun ListingFormDialog(
                         ) {
                             Text(
                                 if (previewImage.isBlank()) {
-                                    "Select From Gallery"
+                                    "Choose Image From Gallery"
                                 } else {
                                     "Change Image"
                                 }
@@ -633,7 +641,27 @@ private fun ListingFormDialog(
                         }
 
                         Text(
-                            text = "Existing image URLs are still supported for older listings.",
+                            text = "OR",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        OutlinedTextField(
+                            value = imageUrl,
+                            onValueChange = { input ->
+                                imageUrl = input
+                                selectedImage = null
+                                errorMessage = null
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = {
+                                Text("Paste Image URL")
+                            },
+                            singleLine = true
+                        )
+
+                        Text(
+                            text = "Use a gallery image or paste an image URL.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -670,6 +698,21 @@ private fun ListingFormDialog(
                 onClick = {
                     val stockValue = stock.toDoubleOrNull() ?: 0.0
                     val priceValue = pricePerKg.toIntOrNull() ?: 0
+                    val remoteImage = imageUrl.trim()
+                    val finalImage = when {
+                        remoteImage.isNotBlank() && remoteImage.isValidImageUrl() -> {
+                            SelectedImage(
+                                sourceUri = remoteImage,
+                                mimeType = remoteImage.inferImageMimeType(),
+                                bytes = byteArrayOf()
+                            )
+                        }
+                        remoteImage.isNotBlank() -> {
+                            errorMessage = "Please enter a valid image URL ending in jpg, jpeg, png, webp, or gif."
+                            return@Button
+                        }
+                        else -> selectedImage
+                    }
 
                     when {
                         wasteName.isBlank() -> errorMessage = "Waste name is required."
@@ -683,7 +726,7 @@ private fun ListingFormDialog(
                                 category = category,
                                 stockKg = stockValue,
                                 pricePerKg = priceValue,
-                                selectedImage = selectedImage,
+                                selectedImage = finalImage,
                                 existingImageUrl = initialListing?.imageUrl.orEmpty()
                             )
                         )
@@ -847,5 +890,35 @@ private fun String.toDisplayStatus(): String {
         ListingStatus.SOLD_OUT.name -> "Sold Out"
         ListingStatus.PENDING.name -> "Pending"
         else -> this
+    }
+}
+
+private fun String.isValidImageUrl(): Boolean {
+    return runCatching {
+        val uri = URI(trim())
+        val scheme = uri.scheme?.lowercase(Locale.US)
+        val host = uri.host.orEmpty()
+        val path = uri.path.orEmpty().lowercase(Locale.US)
+
+        (scheme == "http" || scheme == "https") &&
+            host.isNotBlank() &&
+            (
+                path.endsWith(".jpg") ||
+                    path.endsWith(".jpeg") ||
+                    path.endsWith(".png") ||
+                    path.endsWith(".webp") ||
+                    path.endsWith(".gif") ||
+                    host.contains("images.unsplash.com", ignoreCase = true)
+                )
+    }.getOrDefault(false)
+}
+
+private fun String.inferImageMimeType(): String {
+    val normalized = lowercase(Locale.US).substringBefore("?")
+    return when {
+        normalized.endsWith(".png") -> "image/png"
+        normalized.endsWith(".webp") -> "image/webp"
+        normalized.endsWith(".gif") -> "image/gif"
+        else -> "image/jpeg"
     }
 }

@@ -42,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import com.ky.bananacycles.component.UserAvatar
 import com.ky.bananacycles.model.SelectedImage
 import com.ky.bananacycles.viewmodel.ProfileViewModel
+import java.net.URI
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,6 +58,12 @@ fun EditProfileScreen(
     }
     var selectedImage by remember {
         mutableStateOf<SelectedImage?>(null)
+    }
+    var imageUrl by remember {
+        mutableStateOf("")
+    }
+    var imageInputError by remember {
+        mutableStateOf<String?>(null)
     }
 
     LaunchedEffect(uiState.profile.displayName) {
@@ -85,6 +93,8 @@ fun EditProfileScreen(
                     "Selected profile URI=${image.sourceUri}, mimeType=${image.mimeType}, bytes=${image.bytes.size}"
                 )
                 selectedImage = image
+                imageUrl = ""
+                imageInputError = null
             }.onFailure { error ->
                 Log.e("IMAGE_DEBUG", "Selected profile image could not be read uri=$uri", error)
                 Toast.makeText(
@@ -129,13 +139,20 @@ fun EditProfileScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp),
+                    .padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     UserAvatar(
-                        photoUrl = selectedImage?.sourceUri ?: uiState.profile.photoUrl,
+                        photoUrl = imageUrl.takeIf { it.isNotBlank() }
+                            ?: selectedImage?.sourceUri
+                            ?: uiState.profile.photoUrl,
                         size = 104.dp
+                    )
+
+                    Text(
+                        text = "Choose From Gallery",
+                        style = MaterialTheme.typography.labelLarge
                     )
 
                     OutlinedButton(
@@ -146,6 +163,35 @@ fun EditProfileScreen(
                         }
                     ) {
                         Text("Change Profile Picture")
+                    }
+
+                    Text(
+                        text = "OR",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    OutlinedTextField(
+                        value = imageUrl,
+                        onValueChange = { input ->
+                            imageUrl = input
+                            selectedImage = null
+                            imageInputError = null
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = {
+                            Text("Paste Image URL")
+                        },
+                        singleLine = true,
+                        isError = imageInputError != null
+                    )
+
+                    imageInputError?.let { message ->
+                        Text(
+                            text = message,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
 
                     uiState.imageUploadProgress?.let { progress ->
@@ -185,9 +231,25 @@ fun EditProfileScreen(
 
             Button(
                 onClick = {
+                    val remoteImage = imageUrl.trim()
+                    val finalImage = when {
+                        remoteImage.isNotBlank() && remoteImage.isValidImageUrl() -> {
+                            SelectedImage(
+                                sourceUri = remoteImage,
+                                mimeType = remoteImage.inferImageMimeType(),
+                                bytes = byteArrayOf()
+                            )
+                        }
+                        remoteImage.isNotBlank() -> {
+                            imageInputError = "Please enter a valid image URL ending in jpg, jpeg, png, webp, or gif."
+                            return@Button
+                        }
+                        else -> selectedImage
+                    }
+
                     viewModel.updateProfile(
                         displayName = displayName,
-                        selectedImage = selectedImage,
+                        selectedImage = finalImage,
                         onSuccess = {
                             Toast.makeText(context, "Profile updated.", Toast.LENGTH_SHORT).show()
                             onBack()
@@ -212,5 +274,35 @@ fun EditProfileScreen(
                 }
             }
         }
+    }
+}
+
+private fun String.isValidImageUrl(): Boolean {
+    return runCatching {
+        val uri = URI(trim())
+        val scheme = uri.scheme?.lowercase(Locale.US)
+        val host = uri.host.orEmpty()
+        val path = uri.path.orEmpty().lowercase(Locale.US)
+
+        (scheme == "http" || scheme == "https") &&
+            host.isNotBlank() &&
+            (
+                path.endsWith(".jpg") ||
+                    path.endsWith(".jpeg") ||
+                    path.endsWith(".png") ||
+                    path.endsWith(".webp") ||
+                    path.endsWith(".gif") ||
+                    host.contains("images.unsplash.com", ignoreCase = true)
+                )
+    }.getOrDefault(false)
+}
+
+private fun String.inferImageMimeType(): String {
+    val normalized = lowercase(Locale.US).substringBefore("?")
+    return when {
+        normalized.endsWith(".png") -> "image/png"
+        normalized.endsWith(".webp") -> "image/webp"
+        normalized.endsWith(".gif") -> "image/gif"
+        else -> "image/jpeg"
     }
 }
