@@ -56,6 +56,9 @@ fun EditProfileScreen(
     var selectedImageUri by remember {
         mutableStateOf<Uri?>(null)
     }
+    var selectedImageMimeType by remember {
+        mutableStateOf<String?>(null)
+    }
 
     LaunchedEffect(uiState.profile.displayName) {
         if (displayName.isBlank()) {
@@ -67,6 +70,7 @@ fun EditProfileScreen(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         selectedImageUri = uri
+        selectedImageMimeType = uri?.let { context.contentResolver.getType(it) }
     }
 
     Scaffold(
@@ -161,6 +165,7 @@ fun EditProfileScreen(
                     viewModel.updateProfile(
                         displayName = displayName,
                         imageUri = selectedImageUri,
+                        imageMimeType = selectedImageMimeType,
                         onSuccess = {
                             Toast.makeText(context, "Profile updated.", Toast.LENGTH_SHORT).show()
                             onBack()
@@ -181,7 +186,7 @@ fun EditProfileScreen(
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Text("Save Changes")
+                    Text(if (uiState.errorMessage == null) "Save Changes" else "Retry Upload")
                 }
             }
         }

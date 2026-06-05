@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.storage.StorageException
 import com.ky.bananacycles.model.UserProfile
 import com.ky.bananacycles.model.UserStats
 import com.ky.bananacycles.repository.ProfileRepository
@@ -73,6 +74,7 @@ class ProfileViewModel(
     fun updateProfile(
         displayName: String,
         imageUri: Uri?,
+        imageMimeType: String?,
         onSuccess: () -> Unit,
         onFailure: (String) -> Unit
     ) {
@@ -97,6 +99,7 @@ class ProfileViewModel(
             userId = userId,
             displayName = displayName.trim(),
             imageUri = imageUri,
+            imageMimeType = imageMimeType,
             onProgress = { progress ->
                 uiState = uiState.copy(imageUploadProgress = progress)
             },
@@ -108,7 +111,7 @@ class ProfileViewModel(
                 onSuccess()
             },
             onFailure = { error ->
-                val message = error.localizedMessage ?: "Failed to update profile."
+                val message = error.toUserFacingMessage("Failed to update profile.")
                 uiState = uiState.copy(
                     isSaving = false,
                     imageUploadProgress = null,
@@ -117,6 +120,28 @@ class ProfileViewModel(
                 onFailure(message)
             }
         )
+    }
+
+    private fun Exception.toUserFacingMessage(fallbackMessage: String): String {
+        return if (this is StorageException) {
+            when (errorCode) {
+                StorageException.ERROR_OBJECT_NOT_FOUND -> {
+                    "Profile image upload failed because Firebase Storage could not find the uploaded object. Please retry."
+                }
+                StorageException.ERROR_NOT_AUTHENTICATED -> {
+                    "Please log in again before uploading a profile image."
+                }
+                StorageException.ERROR_NOT_AUTHORIZED -> {
+                    "Profile image upload is blocked by Firebase Storage rules."
+                }
+                StorageException.ERROR_RETRY_LIMIT_EXCEEDED -> {
+                    "Profile image upload timed out. Please check your connection and retry."
+                }
+                else -> localizedMessage ?: fallbackMessage
+            }
+        } else {
+            localizedMessage ?: fallbackMessage
+        }
     }
 
     fun clearProfile() {

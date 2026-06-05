@@ -8,9 +8,11 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.QuerySnapshot
 import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageMetadata
 import com.ky.bananacycles.model.ListingStatus
 import com.ky.bananacycles.model.OrderStatus
 import com.ky.bananacycles.model.WasteItem
+import java.util.Locale
 
 private const val IMAGE_DEBUG_TAG = "IMAGE_DEBUG"
 
@@ -30,6 +32,7 @@ class WasteFirestoreService(
         stockKg: Double,
         pricePerKg: Int,
         imageUri: Uri?,
+        imageMimeType: String?,
         existingImageUrl: String,
         onProgress: (Float?) -> Unit,
         onSuccess: () -> Unit,
@@ -67,6 +70,7 @@ class WasteFirestoreService(
             sellerId = sellerId,
             listingId = listingDocument.id,
             imageUri = imageUri,
+            imageMimeType = imageMimeType,
             fallbackImageUrl = existingImageUrl,
             onProgress = onProgress,
             onSuccess = saveListing,
@@ -81,6 +85,7 @@ class WasteFirestoreService(
         pricePerKg: Int,
         sellerId: String,
         imageUri: Uri?,
+        imageMimeType: String?,
         existingImageUrl: String,
         onProgress: (Float?) -> Unit,
         onSuccess: () -> Unit,
@@ -111,6 +116,7 @@ class WasteFirestoreService(
             sellerId = sellerId,
             listingId = listingId,
             imageUri = imageUri,
+            imageMimeType = imageMimeType,
             fallbackImageUrl = existingImageUrl,
             onProgress = onProgress,
             onSuccess = updateListing,
@@ -376,6 +382,7 @@ class WasteFirestoreService(
         sellerId: String,
         listingId: String,
         imageUri: Uri?,
+        imageMimeType: String?,
         fallbackImageUrl: String,
         onProgress: (Float?) -> Unit,
         onSuccess: (String) -> Unit,
@@ -386,12 +393,44 @@ class WasteFirestoreService(
             return
         }
 
-        onProgress(0f)
-        val imageReference = storage.reference
-            .child("product_images/$sellerId/$listingId.jpg")
+        if (imageUri.isRemoteImageUrl()) {
+            onSuccess(imageUri.toString())
+            return
+        }
 
-        imageReference
-            .putFile(imageUri)
+        if (!imageUri.isLocalUploadableImage()) {
+            onFailure(IllegalArgumentException("Unsupported image source. Please choose an image from your gallery."))
+            return
+        }
+
+        onProgress(0f)
+        val imageExtension = imageUri.supportedImageExtension(imageMimeType)
+        val uploadId = System.currentTimeMillis()
+        val imageReference = storage.reference
+            .child("product_images/$sellerId/${listingId}_$uploadId.$imageExtension")
+        val metadata = StorageMetadata.Builder()
+            .setContentType(imageMimeType.toSupportedImageContentType() ?: imageExtension.toImageContentType())
+            .build()
+
+        imageReference.uploadImageWithRetry(
+            imageUri = imageUri,
+            metadata = metadata,
+            attemptsRemaining = 2,
+            onProgress = onProgress,
+            onSuccess = onSuccess,
+            onFailure = onFailure
+        )
+    }
+
+    private fun com.google.firebase.storage.StorageReference.uploadImageWithRetry(
+        imageUri: Uri,
+        metadata: StorageMetadata,
+        attemptsRemaining: Int,
+        onProgress: (Float?) -> Unit,
+        onSuccess: (String) -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        putFile(imageUri, metadata)
             .addOnProgressListener { snapshot ->
                 val totalBytes = snapshot.totalByteCount
                 if (totalBytes > 0L) {
@@ -402,15 +441,71 @@ class WasteFirestoreService(
                 if (!task.isSuccessful) {
                     task.exception?.let { throw it }
                 }
-                imageReference.downloadUrl
+                downloadUrl
             }
             .addOnSuccessListener { downloadUrl ->
                 onProgress(1f)
                 onSuccess(downloadUrl.toString())
             }
             .addOnFailureListener { error ->
-                onProgress(null)
-                onFailure(error)
+                if (attemptsRemaining > 0) {
+                    uploadImageWithRetry(
+                        imageUri = imageUri,
+                        metadata = metadata,
+                        attemptsRemaining = attemptsRemaining - 1,
+                        onProgress = onProgress,
+                        onSuccess = onSuccess,
+                        onFailure = onFailure
+                    )
+                } else {
+                    onProgress(null)
+                    onFailure(error)
+                }
             }
+    }
+
+    private fun Uri.isRemoteImageUrl(): Boolean {
+        val normalizedScheme = scheme?.lowercase(Locale.US)
+        return normalizedScheme == "http" || normalizedScheme == "https"
+    }
+
+    private fun Uri.isLocalUploadableImage(): Boolean {
+        val normalizedScheme = scheme?.lowercase(Locale.US)
+        return normalizedScheme == "content" || normalizedScheme == "file"
+    }
+
+    private fun Uri.supportedImageExtension(mimeType: String?): String {
+        when (mimeType.toSupportedImageContentType()) {
+            "image/png" -> return "png"
+            "image/webp" -> return "webp"
+            "image/jpeg" -> return "jpg"
+        }
+
+        val path = toString().substringBefore("?").lowercase(Locale.US)
+        return when {
+            path.endsWith(".jpeg") -> "jpg"
+            path.endsWith(".jpg") -> "jpg"
+            path.endsWith(".png") -> "png"
+            path.endsWith(".webp") -> "webp"
+            else -> "jpg"
+        }
+    }
+
+    private fun String?.toSupportedImageContentType(): String? {
+        return when (this?.lowercase(Locale.US)) {
+            "image/jpg",
+            "image/jpeg" -> "image/jpeg"
+            "image/png" -> "image/png"
+            "image/webp" -> "image/webp"
+            else -> null
+        }
+    }
+
+    private fun String.toImageContentType(): String {
+        return when (this) {
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            else -> "image/jpeg"
+        }
     }
 }

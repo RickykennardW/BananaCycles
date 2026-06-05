@@ -37,6 +37,7 @@ class ProfileRepository(
         userId: String,
         displayName: String,
         imageUri: Uri?,
+        imageMimeType: String?,
         onProgress: (Float?) -> Unit,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
@@ -45,6 +46,7 @@ class ProfileRepository(
             userId = userId,
             displayName = displayName,
             imageUri = imageUri,
+            imageMimeType = imageMimeType,
             onProgress = onProgress,
             onSuccess = onSuccess,
             onFailure = onFailure

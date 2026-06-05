@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.storage.StorageException
 import com.ky.bananacycles.model.WasteItem
 import com.ky.bananacycles.repository.WasteRepository
 
@@ -149,6 +150,7 @@ class WasteViewModel(
         stockKg: Double,
         pricePerKg: Int,
         imageUri: Uri?,
+        imageMimeType: String?,
         existingImageUrl: String = "",
         onSuccess: () -> Unit,
         onFailure: (String) -> Unit
@@ -178,6 +180,7 @@ class WasteViewModel(
             stockKg = stockKg,
             pricePerKg = pricePerKg,
             imageUri = imageUri,
+            imageMimeType = imageMimeType,
             existingImageUrl = existingImageUrl,
             onProgress = { progress ->
                 uiState = uiState.copy(imageUploadProgress = progress)
@@ -206,6 +209,7 @@ class WasteViewModel(
         pricePerKg: Int,
         sellerId: String,
         imageUri: Uri?,
+        imageMimeType: String?,
         existingImageUrl: String,
         onSuccess: () -> Unit,
         onFailure: (String) -> Unit
@@ -223,6 +227,7 @@ class WasteViewModel(
             pricePerKg = pricePerKg,
             sellerId = sellerId,
             imageUri = imageUri,
+            imageMimeType = imageMimeType,
             existingImageUrl = existingImageUrl,
             onProgress = { progress ->
                 uiState = uiState.copy(imageUploadProgress = progress)
@@ -379,7 +384,7 @@ class WasteViewModel(
         onFailure: (String) -> Unit,
         isPurchaseFailure: Boolean = false
     ) {
-        val message = error.localizedMessage ?: fallbackMessage
+        val message = error.toUserFacingMessage(fallbackMessage)
 
         uiState = if (isPurchaseFailure) {
             uiState.copy(
@@ -395,6 +400,28 @@ class WasteViewModel(
         }
 
         onFailure(message)
+    }
+
+    private fun Exception.toUserFacingMessage(fallbackMessage: String): String {
+        return if (this is StorageException) {
+            when (errorCode) {
+                StorageException.ERROR_OBJECT_NOT_FOUND -> {
+                    "Image upload failed because Firebase Storage could not find the uploaded object. Please retry."
+                }
+                StorageException.ERROR_NOT_AUTHENTICATED -> {
+                    "Please log in again before uploading images."
+                }
+                StorageException.ERROR_NOT_AUTHORIZED -> {
+                    "Image upload is blocked by Firebase Storage rules."
+                }
+                StorageException.ERROR_RETRY_LIMIT_EXCEEDED -> {
+                    "Image upload timed out. Please check your connection and retry."
+                }
+                else -> localizedMessage ?: fallbackMessage
+            }
+        } else {
+            localizedMessage ?: fallbackMessage
+        }
     }
 
     private fun updateStockByDelta(

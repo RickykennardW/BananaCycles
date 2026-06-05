@@ -102,6 +102,7 @@ fun UploadWasteScreen(
             initialListing = editingListing,
             isSaving = uiState.isSaving,
             uploadProgress = uiState.imageUploadProgress,
+            externalErrorMessage = uiState.errorMessage,
             onDismiss = {
                 isFormOpen = false
                 editingListing = null
@@ -137,6 +138,7 @@ fun UploadWasteScreen(
                         stockKg = form.stockKg,
                         pricePerKg = form.pricePerKg,
                         imageUri = form.imageUri,
+                        imageMimeType = form.imageMimeType,
                         existingImageUrl = form.existingImageUrl,
                         onSuccess = onSuccess,
                         onFailure = onFailure
@@ -149,6 +151,7 @@ fun UploadWasteScreen(
                         pricePerKg = form.pricePerKg,
                         sellerId = listing.sellerId,
                         imageUri = form.imageUri,
+                        imageMimeType = form.imageMimeType,
                         existingImageUrl = form.existingImageUrl,
                         onSuccess = onSuccess,
                         onFailure = onFailure
@@ -422,6 +425,7 @@ private fun ListingFormDialog(
     initialListing: WasteItem?,
     isSaving: Boolean,
     uploadProgress: Float?,
+    externalErrorMessage: String?,
     onDismiss: () -> Unit,
     onSave: (ListingForm) -> Unit
 ) {
@@ -441,17 +445,22 @@ private fun ListingFormDialog(
     var selectedImageUri by remember(initialListing) {
         mutableStateOf<Uri?>(null)
     }
+    var selectedImageMimeType by remember(initialListing) {
+        mutableStateOf<String?>(null)
+    }
     var expanded by remember {
         mutableStateOf(false)
     }
     var errorMessage by remember {
         mutableStateOf<String?>(null)
     }
+    val context = LocalContext.current
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
             selectedImageUri = uri
+            selectedImageMimeType = context.contentResolver.getType(uri)
             errorMessage = null
         }
     }
@@ -632,7 +641,7 @@ private fun ListingFormDialog(
                     }
                 }
 
-                errorMessage?.let { message ->
+                (errorMessage ?: externalErrorMessage)?.let { message ->
                     Text(
                         text = message,
                         color = MaterialTheme.colorScheme.error,
@@ -660,6 +669,7 @@ private fun ListingFormDialog(
                                 stockKg = stockValue,
                                 pricePerKg = priceValue,
                                 imageUri = selectedImageUri,
+                                imageMimeType = selectedImageMimeType,
                                 existingImageUrl = initialListing?.imageUrl.orEmpty()
                             )
                         )
@@ -673,7 +683,7 @@ private fun ListingFormDialog(
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Text("Save")
+                    Text(if (externalErrorMessage == null) "Save" else "Retry Upload")
                 }
             }
         },
@@ -694,6 +704,7 @@ private data class ListingForm(
     val stockKg: Double,
     val pricePerKg: Int,
     val imageUri: Uri?,
+    val imageMimeType: String?,
     val existingImageUrl: String
 )
 

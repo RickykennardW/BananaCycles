@@ -7,8 +7,10 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageMetadata
 import com.ky.bananacycles.model.UserProfile
 import com.ky.bananacycles.model.UserStats
+import java.util.Locale
 
 class ProfileFirestoreService(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
@@ -49,6 +51,7 @@ class ProfileFirestoreService(
         userId: String,
         displayName: String,
         imageUri: Uri?,
+        imageMimeType: String?,
         onProgress: (Float?) -> Unit,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
@@ -65,36 +68,49 @@ class ProfileFirestoreService(
             return
         }
 
+        if (imageUri.isRemoteImageUrl()) {
+            updateProfileData(
+                userId = userId,
+                displayName = displayName,
+                photoUrl = imageUri.toString(),
+                onProgress = onProgress,
+                onSuccess = onSuccess,
+                onFailure = onFailure
+            )
+            return
+        }
+
+        if (!imageUri.isLocalUploadableImage()) {
+            onFailure(IllegalArgumentException("Unsupported image source. Please choose an image from your gallery."))
+            return
+        }
+
         onProgress(0f)
-        val profileImageRef = storage.reference.child("profile_images/$userId.jpg")
-        profileImageRef
-            .putFile(imageUri)
-            .addOnProgressListener { snapshot ->
-                val totalBytes = snapshot.totalByteCount
-                if (totalBytes > 0L) {
-                    onProgress(snapshot.bytesTransferred.toFloat() / totalBytes.toFloat())
-                }
-            }
-            .continueWithTask { task ->
-                if (!task.isSuccessful) {
-                    task.exception?.let { throw it }
-                }
-                profileImageRef.downloadUrl
-            }
-            .addOnSuccessListener { downloadUrl ->
+        val imageExtension = imageUri.supportedImageExtension(imageMimeType)
+        val uploadId = System.currentTimeMillis()
+        val profileImageRef = storage.reference
+            .child("profile_images/$userId/profile_$uploadId.$imageExtension")
+        val metadata = StorageMetadata.Builder()
+            .setContentType(imageMimeType.toSupportedImageContentType() ?: imageExtension.toImageContentType())
+            .build()
+
+        profileImageRef.uploadImageWithRetry(
+            imageUri = imageUri,
+            metadata = metadata,
+            attemptsRemaining = 2,
+            onProgress = onProgress,
+            onSuccess = { downloadUrl ->
                 updateProfileData(
                     userId = userId,
                     displayName = displayName,
-                    photoUrl = downloadUrl.toString(),
+                    photoUrl = downloadUrl,
                     onProgress = onProgress,
                     onSuccess = onSuccess,
                     onFailure = onFailure
                 )
-            }
-            .addOnFailureListener { error ->
-                onProgress(null)
-                onFailure(error)
-            }
+            },
+            onFailure = onFailure
+        )
     }
 
     fun listenUserStats(
@@ -286,5 +302,92 @@ class ProfileFirestoreService(
             .addOnFailureListener { error ->
                 onFailure(error)
             }
+    }
+
+    private fun com.google.firebase.storage.StorageReference.uploadImageWithRetry(
+        imageUri: Uri,
+        metadata: StorageMetadata,
+        attemptsRemaining: Int,
+        onProgress: (Float?) -> Unit,
+        onSuccess: (String) -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        putFile(imageUri, metadata)
+            .addOnProgressListener { snapshot ->
+                val totalBytes = snapshot.totalByteCount
+                if (totalBytes > 0L) {
+                    onProgress(snapshot.bytesTransferred.toFloat() / totalBytes.toFloat())
+                }
+            }
+            .continueWithTask { task ->
+                if (!task.isSuccessful) {
+                    task.exception?.let { throw it }
+                }
+                downloadUrl
+            }
+            .addOnSuccessListener { downloadUrl ->
+                onProgress(1f)
+                onSuccess(downloadUrl.toString())
+            }
+            .addOnFailureListener { error ->
+                if (attemptsRemaining > 0) {
+                    uploadImageWithRetry(
+                        imageUri = imageUri,
+                        metadata = metadata,
+                        attemptsRemaining = attemptsRemaining - 1,
+                        onProgress = onProgress,
+                        onSuccess = onSuccess,
+                        onFailure = onFailure
+                    )
+                } else {
+                    onProgress(null)
+                    onFailure(error)
+                }
+            }
+    }
+
+    private fun Uri.isRemoteImageUrl(): Boolean {
+        val normalizedScheme = scheme?.lowercase(Locale.US)
+        return normalizedScheme == "http" || normalizedScheme == "https"
+    }
+
+    private fun Uri.isLocalUploadableImage(): Boolean {
+        val normalizedScheme = scheme?.lowercase(Locale.US)
+        return normalizedScheme == "content" || normalizedScheme == "file"
+    }
+
+    private fun Uri.supportedImageExtension(mimeType: String?): String {
+        when (mimeType.toSupportedImageContentType()) {
+            "image/png" -> return "png"
+            "image/webp" -> return "webp"
+            "image/jpeg" -> return "jpg"
+        }
+
+        val path = toString().substringBefore("?").lowercase(Locale.US)
+        return when {
+            path.endsWith(".jpeg") -> "jpg"
+            path.endsWith(".jpg") -> "jpg"
+            path.endsWith(".png") -> "png"
+            path.endsWith(".webp") -> "webp"
+            else -> "jpg"
+        }
+    }
+
+    private fun String?.toSupportedImageContentType(): String? {
+        return when (this?.lowercase(Locale.US)) {
+            "image/jpg",
+            "image/jpeg" -> "image/jpeg"
+            "image/png" -> "image/png"
+            "image/webp" -> "image/webp"
+            else -> null
+        }
+    }
+
+    private fun String.toImageContentType(): String {
+        return when (this) {
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            else -> "image/jpeg"
+        }
     }
 }
