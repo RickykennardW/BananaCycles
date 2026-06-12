@@ -116,6 +116,11 @@ fun ProfileScreen(
                         value = stats.totalPurchasesCompleted.toString(),
                         modifier = Modifier.weight(1f)
                     )
+                    StatItem(
+                        label = "AI Assisted Listings",
+                        value = stats.aiAssistedListings.toString(),
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
 

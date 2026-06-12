@@ -29,7 +29,8 @@ enum class OrderStatus {
 data class UserStats(
     val userId: String = "",
     val totalSalesCompleted: Int = 0,
-    val totalPurchasesCompleted: Int = 0
+    val totalPurchasesCompleted: Int = 0,
+    val aiAssistedListings: Int = 0
 )
 
 data class Transaction(

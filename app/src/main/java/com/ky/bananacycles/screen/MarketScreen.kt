@@ -60,11 +60,11 @@ fun MarketScreen(
         val matchesCategory = when (selectedCategory) {
 
             "Organic" -> {
-                waste.category.isOrganicCategory()
+                waste.category == "Organic"
             }
 
             "Inorganic" -> {
-                waste.category.isInorganicCategory()
+                waste.category == "Inorganic"
             }
 
             else -> true
@@ -205,14 +205,4 @@ fun MarketScreen(
         }
     }
 
-}
-
-private fun String.isOrganicCategory(): Boolean {
-    return equals("Organic", ignoreCase = true) ||
-        equals("Organik", ignoreCase = true)
-}
-
-private fun String.isInorganicCategory(): Boolean {
-    return equals("Inorganic", ignoreCase = true) ||
-        equals("Anorganik", ignoreCase = true)
 }

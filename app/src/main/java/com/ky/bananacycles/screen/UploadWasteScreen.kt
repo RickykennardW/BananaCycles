@@ -1,10 +1,6 @@
 package com.ky.bananacycles.screen
 
-import android.util.Log
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,6 +36,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.AssistChip
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,6 +52,8 @@ import com.ky.bananacycles.component.ListingImage
 import com.ky.bananacycles.model.ListingStatus
 import com.ky.bananacycles.model.SelectedImage
 import com.ky.bananacycles.model.WasteItem
+import com.ky.bananacycles.model.WastePrediction
+import com.ky.bananacycles.model.WasteScanResult
 import com.ky.bananacycles.viewmodel.WasteViewModel
 import java.net.URI
 import java.util.Locale
@@ -70,7 +70,8 @@ private enum class SellFilter(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UploadWasteScreen(
-    viewModel: WasteViewModel
+    viewModel: WasteViewModel,
+    onAiScanClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val uiState = viewModel.uiState
@@ -91,6 +92,13 @@ fun UploadWasteScreen(
         viewModel.loadMyListings()
     }
 
+    LaunchedEffect(uiState.aiScanResult) {
+        if (uiState.aiScanResult != null) {
+            editingListing = null
+            isFormOpen = true
+        }
+    }
+
     val filteredListings = uiState.myListings.filter { listing ->
         when (selectedFilter) {
             SellFilter.ALL -> true
@@ -105,8 +113,18 @@ fun UploadWasteScreen(
             initialListing = editingListing,
             isSaving = uiState.isSaving,
             uploadProgress = uiState.imageUploadProgress,
+            isAnalyzingWaste = uiState.isAnalyzingWaste,
+            wastePrediction = uiState.wastePrediction,
+            wasteDetectionMessage = uiState.wasteDetectionMessage,
+            aiScanResult = uiState.aiScanResult,
+            aiScanMessage = uiState.aiScanErrorMessage,
             externalErrorMessage = uiState.errorMessage,
+            onClearWasteAnalysis = {
+                viewModel.clearWasteDetection()
+            },
             onDismiss = {
+                viewModel.clearWasteDetection()
+                viewModel.clearAiScanResult()
                 isFormOpen = false
                 editingListing = null
             },
@@ -123,6 +141,7 @@ fun UploadWasteScreen(
                     ).show()
                     isFormOpen = false
                     editingListing = null
+                    viewModel.clearAiScanResult()
                 }
 
                 val onFailure: (String) -> Unit = { message ->
@@ -137,11 +156,13 @@ fun UploadWasteScreen(
                 if (listing == null) {
                     viewModel.addListing(
                         wasteName = form.wasteName,
+                        description = form.description,
                         category = form.category,
                         stockKg = form.stockKg,
                         pricePerKg = form.pricePerKg,
                         selectedImage = form.selectedImage,
                         existingImageUrl = form.existingImageUrl,
+                        wastePrediction = form.wastePrediction,
                         onSuccess = onSuccess,
                         onFailure = onFailure
                     )
@@ -149,11 +170,13 @@ fun UploadWasteScreen(
                     viewModel.updateListing(
                         listingId = listing.id,
                         wasteName = form.wasteName,
+                        description = form.description,
                         category = form.category,
                         pricePerKg = form.pricePerKg,
                         sellerId = listing.sellerId,
                         selectedImage = form.selectedImage,
                         existingImageUrl = form.existingImageUrl,
+                        wastePrediction = form.wastePrediction,
                         onSuccess = onSuccess,
                         onFailure = onFailure
                     )
@@ -244,6 +267,12 @@ fun UploadWasteScreen(
                     text = "Manage stock, prices, and availability",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                AiScannerEntryCard(
+                    onAiScanClick = onAiScanClick
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -339,6 +368,42 @@ fun UploadWasteScreen(
 }
 
 @Composable
+private fun AiScannerEntryCard(
+    onAiScanClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "AI Waste Scanner",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Text(
+                text = "Scan or upload a waste image. BananaCycles will help fill this form automatically.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Button(
+                onClick = onAiScanClick,
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Scan with AI")
+            }
+        }
+    }
+}
+
+@Composable
 private fun SellerListingCard(
     listing: WasteItem,
     isSaving: Boolean,
@@ -426,13 +491,28 @@ private fun ListingFormDialog(
     initialListing: WasteItem?,
     isSaving: Boolean,
     uploadProgress: Float?,
+    isAnalyzingWaste: Boolean,
+    wastePrediction: WastePrediction?,
+    wasteDetectionMessage: String?,
+    aiScanResult: WasteScanResult?,
+    aiScanMessage: String?,
     externalErrorMessage: String?,
+    onClearWasteAnalysis: () -> Unit,
     onDismiss: () -> Unit,
     onSave: (ListingForm) -> Unit
 ) {
-    val categories = listOf("Organic", "Inorganic")
+    val categories = listOf(
+        "Organic",
+        "Inorganic"
+    )
     var wasteName by remember(initialListing) {
         mutableStateOf(initialListing?.wasteName.orEmpty())
+    }
+    var description by remember(initialListing, aiScanResult) {
+        mutableStateOf(
+            aiScanResult?.toGeneratedDescription()
+                ?: initialListing?.description.orEmpty()
+        )
     }
     var category by remember(initialListing) {
         mutableStateOf(initialListing?.category?.toDisplayCategory() ?: "Organic")
@@ -449,45 +529,72 @@ private fun ListingFormDialog(
     var imageUrl by remember(initialListing) {
         mutableStateOf("")
     }
+    var materialType by remember(initialListing) {
+        mutableStateOf(initialListing?.materialType.orEmpty())
+    }
+    var cleanliness by remember(initialListing) {
+        mutableStateOf(initialListing?.cleanliness.orEmpty())
+    }
+    var contamination by remember(initialListing) {
+        mutableStateOf(initialListing?.contamination.orEmpty())
+    }
+    var reuseSuggestion by remember(initialListing) {
+        mutableStateOf(initialListing?.reuseSuggestion.orEmpty())
+    }
+    var recyclability by remember(initialListing) {
+        mutableStateOf(initialListing?.recyclability.orEmpty())
+    }
+    var acceptedPrediction by remember(initialListing) {
+        mutableStateOf<WastePrediction?>(null)
+    }
+    var isAiCardVisible by remember(initialListing) {
+        mutableStateOf(initialListing?.aiGenerated == true)
+    }
     var expanded by remember {
         mutableStateOf(false)
     }
     var errorMessage by remember {
         mutableStateOf<String?>(null)
     }
-    val context = LocalContext.current
-    val imagePicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia()
-    ) { uri ->
-        if (uri != null) {
-            runCatching {
-                val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
-                val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
-                    input.readBytes()
-                } ?: throw IllegalArgumentException("Unable to read the selected image.")
+    val previewImage = imageUrl.takeIf { it.isNotBlank() }
+        ?: initialListing?.imageUrl.orEmpty()
 
-                SelectedImage(
-                    sourceUri = uri.toString(),
-                    mimeType = mimeType,
-                    bytes = bytes
-                )
-            }.onSuccess { image ->
-                Log.d(
-                    "IMAGE_DEBUG",
-                    "Selected product URI=${image.sourceUri}, mimeType=${image.mimeType}, bytes=${image.bytes.size}"
-                )
-                selectedImage = image
-                imageUrl = ""
-                errorMessage = null
-            }.onFailure { error ->
-                Log.e("IMAGE_DEBUG", "Selected product image could not be read uri=$uri", error)
-                errorMessage = error.localizedMessage ?: "Unable to read the selected image."
+    LaunchedEffect(aiScanResult) {
+        val result = aiScanResult ?: return@LaunchedEffect
+        wasteName = result.wasteName.ifBlank { result.materialType }
+        category = result.category.ifBlank { category }
+        description = result.toGeneratedDescription()
+        materialType = result.materialType
+        cleanliness = result.cleanliness
+        contamination = if (result.recyclability.equals("High", ignoreCase = true)) {
+            "Low"
+        } else {
+            "Needs Review"
+        }
+        reuseSuggestion = result.reuseSuggestion
+        recyclability = result.recyclability
+        acceptedPrediction = result.toWastePrediction()
+        isAiCardVisible = true
+    }
+
+    LaunchedEffect(wastePrediction) {
+        val prediction = wastePrediction
+        if (prediction != null && prediction.isConfident) {
+            // Auto-fill is intentionally limited to local form state. The seller
+            // still controls the final submission and may edit every value before saving.
+            acceptedPrediction = prediction.copy(aiGenerated = true)
+            isAiCardVisible = true
+            category = prediction.wasteCategory
+            materialType = prediction.materialType
+            cleanliness = prediction.cleanliness
+            contamination = prediction.contamination
+            reuseSuggestion = prediction.reuseSuggestion
+            recyclability = prediction.recyclability
+            if (wasteName.isBlank()) {
+                wasteName = prediction.materialType
             }
         }
     }
-    val previewImage = imageUrl.takeIf { it.isNotBlank() }
-        ?: selectedImage?.sourceUri
-        ?: initialListing?.imageUrl.orEmpty()
 
     AlertDialog(
         onDismissRequest = {
@@ -518,6 +625,18 @@ private fun ListingFormDialog(
                         Text("Waste Name")
                     },
                     singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = {
+                        description = it
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = {
+                        Text("Description / Note")
+                    },
+                    minLines = 3
                 )
 
                 ExposedDropdownMenuBox(
@@ -623,34 +742,14 @@ private fun ListingFormDialog(
                             )
                         }
 
-                        OutlinedButton(
-                            onClick = {
-                                imagePicker.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
-                            },
-                            enabled = !isSaving
-                        ) {
-                            Text(
-                                if (previewImage.isBlank()) {
-                                    "Choose Image From Gallery"
-                                } else {
-                                    "Change Image"
-                                }
-                            )
-                        }
-
-                        Text(
-                            text = "OR",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
                         OutlinedTextField(
                             value = imageUrl,
                             onValueChange = { input ->
                                 imageUrl = input
                                 selectedImage = null
+                                acceptedPrediction = null
+                                isAiCardVisible = false
+                                onClearWasteAnalysis()
                                 errorMessage = null
                             },
                             modifier = Modifier.fillMaxWidth(),
@@ -661,12 +760,37 @@ private fun ListingFormDialog(
                         )
 
                         Text(
-                            text = "Use a gallery image or paste an image URL.",
+                            text = "Enter an image URL manually. AI scan images are not used as product images.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
+
+                AiWasteAnalysisSection(
+                    isAnalyzingWaste = isAnalyzingWaste,
+                    prediction = wastePrediction,
+                    message = aiScanMessage ?: wasteDetectionMessage,
+                    isVisible = isAiCardVisible || isAnalyzingWaste || wasteDetectionMessage != null || aiScanMessage != null,
+                    onAcceptSuggestion = { prediction ->
+                        acceptedPrediction = prediction.copy(aiGenerated = true)
+                        isAiCardVisible = true
+                        category = prediction.wasteCategory
+                        materialType = prediction.materialType
+                        cleanliness = prediction.cleanliness
+                        contamination = prediction.contamination
+                        reuseSuggestion = prediction.reuseSuggestion
+                        recyclability = prediction.recyclability
+                        if (wasteName.isBlank()) {
+                            wasteName = prediction.materialType
+                        }
+                    },
+                    onEditManually = {
+                        acceptedPrediction = null
+                        isAiCardVisible = false
+                        onClearWasteAnalysis()
+                    }
+                )
 
                 uploadProgress?.let { progress ->
                     Column(
@@ -701,6 +825,8 @@ private fun ListingFormDialog(
                     val remoteImage = imageUrl.trim()
                     val finalImage = when {
                         remoteImage.isNotBlank() && remoteImage.isValidImageUrl() -> {
+                            onClearWasteAnalysis()
+                            acceptedPrediction = null
                             SelectedImage(
                                 sourceUri = remoteImage,
                                 mimeType = remoteImage.inferImageMimeType(),
@@ -723,11 +849,21 @@ private fun ListingFormDialog(
                         else -> onSave(
                             ListingForm(
                                 wasteName = wasteName.trim(),
+                                description = description.trim(),
                                 category = category,
                                 stockKg = stockValue,
                                 pricePerKg = priceValue,
                                 selectedImage = finalImage,
-                                existingImageUrl = initialListing?.imageUrl.orEmpty()
+                                existingImageUrl = initialListing?.imageUrl.orEmpty(),
+                                wastePrediction = acceptedPrediction?.copy(
+                                    wasteCategory = category,
+                                    materialType = materialType,
+                                    cleanliness = cleanliness,
+                                    contamination = contamination,
+                                    reuseSuggestion = reuseSuggestion,
+                                    recyclability = recyclability,
+                                    aiGenerated = true
+                                )
                             )
                         )
                     }
@@ -755,13 +891,151 @@ private fun ListingFormDialog(
     )
 }
 
+@Composable
+private fun AiWasteAnalysisSection(
+    isAnalyzingWaste: Boolean,
+    prediction: WastePrediction?,
+    message: String?,
+    isVisible: Boolean,
+    onAcceptSuggestion: (WastePrediction) -> Unit,
+    onEditManually: () -> Unit
+) {
+    if (!isVisible) {
+        return
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "AI Waste Analysis",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+
+            if (isAnalyzingWaste) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Text(
+                        text = "Analyzing waste...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth()
+                )
+                return@Column
+            }
+
+            if (prediction == null || !prediction.isConfident) {
+                Text(
+                    text = message ?: "We are not confident. Please classify manually.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                TextButton(
+                    onClick = onEditManually
+                ) {
+                    Text("Edit Manually")
+                }
+                return@Column
+            }
+
+            Text(
+                text = prediction.materialType,
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+
+            AssistChip(
+                onClick = {},
+                label = {
+                    Text("Confidence ${prediction.confidencePercent}%")
+                }
+            )
+
+            AiPredictionRow("Category", prediction.wasteCategory)
+            AiPredictionRow("Condition", prediction.cleanliness)
+            AiPredictionRow("Contamination", prediction.contamination)
+            AiPredictionRow("Reuse", prediction.reuseSuggestion)
+            AiPredictionRow("Recyclability", prediction.recyclability)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = {
+                        onAcceptSuggestion(prediction)
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Accept Suggestion")
+                }
+
+                OutlinedButton(
+                    onClick = onEditManually,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Edit Manually")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiPredictionRow(
+    label: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "$label:",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = value.ifBlank { "-" },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+    }
+}
+
 private data class ListingForm(
     val wasteName: String,
+    val description: String,
     val category: String,
     val stockKg: Double,
     val pricePerKg: Int,
     val selectedImage: SelectedImage?,
-    val existingImageUrl: String
+    val existingImageUrl: String,
+    val wastePrediction: WastePrediction?
 )
 
 private enum class StockActionType {
@@ -878,9 +1152,9 @@ private fun StockActionDialog(
 
 private fun String.toDisplayCategory(): String {
     return when {
+        equals("Organic", ignoreCase = true) -> "Organic"
         equals("Organik", ignoreCase = true) -> "Organic"
-        equals("Anorganik", ignoreCase = true) -> "Inorganic"
-        else -> this
+        else -> "Inorganic"
     }
 }
 
@@ -891,6 +1165,29 @@ private fun String.toDisplayStatus(): String {
         ListingStatus.PENDING.name -> "Pending"
         else -> this
     }
+}
+
+private fun WasteScanResult.toGeneratedDescription(): String {
+    return listOf(
+        "Material: ${materialType.ifBlank { "-" }}",
+        "Condition: ${cleanliness.ifBlank { "-" }}",
+        "Recyclability: ${recyclability.ifBlank { "-" }}",
+        "Suggested reuse: ${reuseSuggestion.ifBlank { "-" }}",
+        "Detected by AI with $confidencePercent% confidence."
+    ).joinToString(separator = "\n")
+}
+
+private fun WasteScanResult.toWastePrediction(): WastePrediction {
+    return WastePrediction(
+        wasteCategory = category,
+        materialType = materialType,
+        cleanliness = cleanliness,
+        contamination = if (recyclability.equals("High", ignoreCase = true)) "Low" else "Needs Review",
+        reuseSuggestion = reuseSuggestion,
+        recyclability = recyclability,
+        confidence = confidence,
+        aiGenerated = true
+    )
 }
 
 private fun String.isValidImageUrl(): Boolean {

@@ -12,6 +12,8 @@ data class WasteItem(
 
     val wasteName: String = "",
 
+    val description: String = "",
+
     val category: String = "",
 
     val stockKg: Double = 0.0,
@@ -22,7 +24,23 @@ data class WasteItem(
 
     val status: String = ListingStatus.ACTIVE.name,
 
-    val createdAt: Long = 0L
+    val createdAt: Long = 0L,
+
+    val aiDetectedCategory: String = "",
+
+    val aiConfidence: Double = 0.0,
+
+    val materialType: String = "",
+
+    val cleanliness: String = "",
+
+    val contamination: String = "",
+
+    val reuseSuggestion: String = "",
+
+    val recyclability: String = "",
+
+    val aiGenerated: Boolean = false
 
 )
 

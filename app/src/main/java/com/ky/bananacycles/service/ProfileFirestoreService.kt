@@ -199,7 +199,8 @@ class ProfileFirestoreService(
                     UserStats(
                         userId = snapshot?.getString("userId") ?: userId,
                         totalSalesCompleted = snapshot?.getLong("totalSalesCompleted")?.toInt() ?: 0,
-                        totalPurchasesCompleted = snapshot?.getLong("totalPurchasesCompleted")?.toInt() ?: 0
+                        totalPurchasesCompleted = snapshot?.getLong("totalPurchasesCompleted")?.toInt() ?: 0,
+                        aiAssistedListings = snapshot?.getLong("aiAssistedListings")?.toInt() ?: 0
                     )
                 )
             }

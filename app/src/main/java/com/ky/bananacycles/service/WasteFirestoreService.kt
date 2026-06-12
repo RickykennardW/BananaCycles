@@ -7,12 +7,14 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.QuerySnapshot
+import com.google.firebase.firestore.SetOptions
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageMetadata
 import com.ky.bananacycles.model.ListingStatus
 import com.ky.bananacycles.model.OrderStatus
 import com.ky.bananacycles.model.SelectedImage
 import com.ky.bananacycles.model.WasteItem
+import com.ky.bananacycles.model.WastePrediction
 import java.util.Locale
 
 private const val IMAGE_DEBUG_TAG = "IMAGE_DEBUG"
@@ -23,17 +25,20 @@ class WasteFirestoreService(
 ) {
 
     private val listingsCollection = firestore.collection("Listings")
+    private val statsCollection = firestore.collection("UserStats")
 
     fun addListing(
         sellerId: String,
         sellerName: String,
         sellerPhotoUrl: String,
         wasteName: String,
+        description: String,
         category: String,
         stockKg: Double,
         pricePerKg: Int,
         selectedImage: SelectedImage?,
         existingImageUrl: String,
+        wastePrediction: WastePrediction?,
         onProgress: (Float?) -> Unit,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
@@ -41,17 +46,27 @@ class WasteFirestoreService(
         val listingDocument = listingsCollection.document()
         val saveListing: (String) -> Unit = { uploadedImageUrl ->
             Log.d(IMAGE_DEBUG_TAG, "Firestore Update start listingId=${listingDocument.id}, imageUrl=$uploadedImageUrl")
+            val normalizedCategory = category.toCanonicalWasteCategory()
             val data = hashMapOf(
                 "listingId" to listingDocument.id,
                 "sellerId" to sellerId,
                 "sellerName" to sellerName,
                 "sellerPhotoUrl" to sellerPhotoUrl,
                 "wasteName" to wasteName,
-                "category" to category,
+                "description" to description,
+                "category" to normalizedCategory,
                 "stockKg" to stockKg,
                 "pricePerKg" to pricePerKg,
                 "imageUrl" to uploadedImageUrl,
                 "status" to ListingStatus.ACTIVE.name,
+                "aiDetectedCategory" to wastePrediction.orEmpty().wasteCategory.toCanonicalWasteCategory(),
+                "aiConfidence" to wastePrediction.orEmpty().confidence.toDouble(),
+                "materialType" to wastePrediction.orEmpty().materialType,
+                "cleanliness" to wastePrediction.orEmpty().cleanliness,
+                "contamination" to wastePrediction.orEmpty().contamination,
+                "reuseSuggestion" to wastePrediction.orEmpty().reuseSuggestion,
+                "recyclability" to wastePrediction.orEmpty().recyclability,
+                "aiGenerated" to (wastePrediction?.aiGenerated == true && wastePrediction.isConfident),
                 "createdAt" to FieldValue.serverTimestamp()
             )
 
@@ -59,6 +74,10 @@ class WasteFirestoreService(
                 .set(data)
                 .addOnSuccessListener {
                     Log.d(IMAGE_DEBUG_TAG, "Firestore Update success listingId=${listingDocument.id}")
+                    incrementAiAssistedListingsIfNeeded(
+                        sellerId = sellerId,
+                        wastePrediction = wastePrediction
+                    )
                     onProgress(null)
                     onSuccess()
                 }
@@ -83,22 +102,34 @@ class WasteFirestoreService(
     fun updateListing(
         listingId: String,
         wasteName: String,
+        description: String,
         category: String,
         pricePerKg: Int,
         sellerId: String,
         selectedImage: SelectedImage?,
         existingImageUrl: String,
+        wastePrediction: WastePrediction?,
         onProgress: (Float?) -> Unit,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
     ) {
         val updateListing: (String) -> Unit = { uploadedImageUrl ->
             Log.d(IMAGE_DEBUG_TAG, "Firestore Update start listingId=$listingId, imageUrl=$uploadedImageUrl")
+            val normalizedCategory = category.toCanonicalWasteCategory()
             val data = mapOf(
                 "wasteName" to wasteName,
-                "category" to category,
+                "description" to description,
+                "category" to normalizedCategory,
                 "pricePerKg" to pricePerKg,
-                "imageUrl" to uploadedImageUrl
+                "imageUrl" to uploadedImageUrl,
+                "aiDetectedCategory" to wastePrediction.orEmpty().wasteCategory.toCanonicalWasteCategory(),
+                "aiConfidence" to wastePrediction.orEmpty().confidence.toDouble(),
+                "materialType" to wastePrediction.orEmpty().materialType,
+                "cleanliness" to wastePrediction.orEmpty().cleanliness,
+                "contamination" to wastePrediction.orEmpty().contamination,
+                "reuseSuggestion" to wastePrediction.orEmpty().reuseSuggestion,
+                "recyclability" to wastePrediction.orEmpty().recyclability,
+                "aiGenerated" to (wastePrediction?.aiGenerated == true && wastePrediction.isConfident)
             )
 
             listingsCollection
@@ -367,14 +398,57 @@ class WasteFirestoreService(
                 sellerName = document.getString("sellerName").orEmpty(),
                 sellerPhotoUrl = document.getString("sellerPhotoUrl").orEmpty(),
                 wasteName = document.getString("wasteName").orEmpty(),
-                category = document.getString("category").orEmpty(),
+                description = document.getString("description").orEmpty(),
+                category = document.getString("category").orEmpty().toCanonicalWasteCategory(),
                 stockKg = stockKg,
                 pricePerKg = pricePerKg,
                 imageUrl = imageUrl,
                 status = status,
-                createdAt = createdAtTimestamp.toMillisOrZero()
+                createdAt = createdAtTimestamp.toMillisOrZero(),
+                aiDetectedCategory = document.getString("aiDetectedCategory").orEmpty().toCanonicalWasteCategory(),
+                aiConfidence = document.getDouble("aiConfidence") ?: 0.0,
+                materialType = document.getString("materialType").orEmpty(),
+                cleanliness = document.getString("cleanliness").orEmpty(),
+                contamination = document.getString("contamination").orEmpty(),
+                reuseSuggestion = document.getString("reuseSuggestion").orEmpty(),
+                recyclability = document.getString("recyclability").orEmpty(),
+                aiGenerated = document.getBoolean("aiGenerated") ?: false
             )
         }
+    }
+
+    private fun WastePrediction?.orEmpty(): WastePrediction {
+        return this ?: WastePrediction()
+    }
+
+    private fun String.toCanonicalWasteCategory(): String {
+        return if (equals("Organic", ignoreCase = true) || equals("Organik", ignoreCase = true)) {
+            "Organic"
+        } else {
+            "Inorganic"
+        }
+    }
+
+    private fun incrementAiAssistedListingsIfNeeded(
+        sellerId: String,
+        wastePrediction: WastePrediction?
+    ) {
+        if (wastePrediction?.aiGenerated != true || !wastePrediction.isConfident) {
+            return
+        }
+
+        statsCollection
+            .document(sellerId)
+            .set(
+                mapOf(
+                    "userId" to sellerId,
+                    "aiAssistedListings" to FieldValue.increment(1)
+                ),
+                SetOptions.merge()
+            )
+            .addOnFailureListener { error ->
+                Log.e(IMAGE_DEBUG_TAG, "Failed to increment aiAssistedListings userId=$sellerId", error)
+            }
     }
 
     private fun Timestamp?.toMillisOrZero(): Long {

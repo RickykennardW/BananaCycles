@@ -1,6 +1,8 @@
 package com.ky.bananacycles.viewmodel
 
 import android.util.Log
+import android.os.Handler
+import android.os.Looper
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -10,7 +12,12 @@ import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.storage.StorageException
 import com.ky.bananacycles.model.SelectedImage
 import com.ky.bananacycles.model.WasteItem
+import com.ky.bananacycles.model.WastePrediction
+import com.ky.bananacycles.model.WasteScanResult
+import com.ky.bananacycles.repository.WasteDetectionRepository
 import com.ky.bananacycles.repository.WasteRepository
+import kotlinx.coroutines.runBlocking
+import java.util.concurrent.Executors
 
 private const val IMAGE_DEBUG_TAG = "IMAGE_DEBUG"
 
@@ -23,12 +30,20 @@ data class WasteUiState(
     val isMyListingsRefreshing: Boolean = false,
     val isSaving: Boolean = false,
     val isPurchasing: Boolean = false,
+    val isAnalyzingWaste: Boolean = false,
+    val wastePrediction: WastePrediction? = null,
+    val wasteDetectionMessage: String? = null,
+    val isScanningWaste: Boolean = false,
+    val aiScanPreviewResult: WasteScanResult? = null,
+    val aiScanResult: WasteScanResult? = null,
+    val aiScanErrorMessage: String? = null,
     val imageUploadProgress: Float? = null,
     val errorMessage: String? = null
 )
 
 class WasteViewModel(
     private val repository: WasteRepository = WasteRepository(),
+    private val detectionRepository: WasteDetectionRepository = WasteDetectionRepository(),
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 ) : ViewModel() {
 
@@ -37,6 +52,9 @@ class WasteViewModel(
 
     private var marketListener: ListenerRegistration? = null
     private var myListingsListener: ListenerRegistration? = null
+    private val detectionExecutor = Executors.newSingleThreadExecutor()
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var detectionRequestId = 0
 
     fun loadMarketListings(
         forceRefresh: Boolean = false
@@ -146,11 +164,13 @@ class WasteViewModel(
 
     fun addListing(
         wasteName: String,
+        description: String,
         category: String,
         stockKg: Double,
         pricePerKg: Int,
         selectedImage: SelectedImage?,
         existingImageUrl: String = "",
+        wastePrediction: WastePrediction? = null,
         onSuccess: () -> Unit,
         onFailure: (String) -> Unit
     ) {
@@ -170,16 +190,18 @@ class WasteViewModel(
 
         repository.addListing(
             sellerId = currentUserId,
-            sellerName = currentUser.displayName
+        sellerName = currentUser.displayName
                 ?: currentUser.email
                 ?: "BananaCycles Seller",
             sellerPhotoUrl = currentUser.photoUrl?.toString().orEmpty(),
             wasteName = wasteName,
+            description = description,
             category = category,
             stockKg = stockKg,
             pricePerKg = pricePerKg,
             selectedImage = selectedImage,
             existingImageUrl = existingImageUrl,
+            wastePrediction = wastePrediction,
             onProgress = { progress ->
                 uiState = uiState.copy(imageUploadProgress = progress)
             },
@@ -203,11 +225,13 @@ class WasteViewModel(
     fun updateListing(
         listingId: String,
         wasteName: String,
+        description: String,
         category: String,
         pricePerKg: Int,
         sellerId: String,
         selectedImage: SelectedImage?,
         existingImageUrl: String,
+        wastePrediction: WastePrediction? = null,
         onSuccess: () -> Unit,
         onFailure: (String) -> Unit
     ) {
@@ -220,11 +244,13 @@ class WasteViewModel(
         repository.updateListing(
             listingId = listingId,
             wasteName = wasteName,
+            description = description,
             category = category,
             pricePerKg = pricePerKg,
             sellerId = sellerId,
             selectedImage = selectedImage,
             existingImageUrl = existingImageUrl,
+            wastePrediction = wastePrediction,
             onProgress = { progress ->
                 uiState = uiState.copy(imageUploadProgress = progress)
             },
@@ -242,6 +268,136 @@ class WasteViewModel(
                     onFailure = onFailure
                 )
             }
+        )
+    }
+
+    fun analyzeWasteImage(selectedImage: SelectedImage) {
+        val requestId = ++detectionRequestId
+        uiState = uiState.copy(
+            isAnalyzingWaste = true,
+            wastePrediction = null,
+            wasteDetectionMessage = null,
+            errorMessage = null
+        )
+
+        // Detection runs away from the Compose thread so image compression and
+        // future ML inference engines cannot block typing, scrolling, or preview rendering.
+        detectionExecutor.execute {
+            runCatching {
+                detectionRepository.detectWaste(selectedImage)
+            }.onSuccess { prediction ->
+                if (requestId != detectionRequestId) {
+                    return@onSuccess
+                }
+
+                val message = if (prediction.isConfident) {
+                    null
+                } else {
+                    "We are not confident. Please classify manually."
+                }
+
+                mainHandler.post {
+                    if (requestId == detectionRequestId) {
+                        uiState = uiState.copy(
+                            isAnalyzingWaste = false,
+                            wastePrediction = prediction,
+                            wasteDetectionMessage = message
+                        )
+                    }
+                }
+            }.onFailure { error ->
+                if (requestId != detectionRequestId) {
+                    return@onFailure
+                }
+
+                mainHandler.post {
+                    if (requestId == detectionRequestId) {
+                        uiState = uiState.copy(
+                            isAnalyzingWaste = false,
+                            wastePrediction = null,
+                            wasteDetectionMessage = error.localizedMessage
+                                ?: "AI waste analysis failed. Please classify manually."
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun clearWasteDetection() {
+        detectionRequestId += 1
+        uiState = uiState.copy(
+            isAnalyzingWaste = false,
+            wastePrediction = null,
+            wasteDetectionMessage = null
+        )
+    }
+
+    fun scanWasteImageForSell(selectedImage: SelectedImage) {
+        val requestId = ++detectionRequestId
+        uiState = uiState.copy(
+            isScanningWaste = true,
+            aiScanPreviewResult = null,
+            aiScanErrorMessage = null
+        )
+
+        // The scan screen uses the same repository boundary as the form analyzer.
+        // This keeps fake/demo AI replaceable with TFLite, Firebase ML, or Gemini Vision later.
+        detectionExecutor.execute {
+            runCatching {
+                runBlocking {
+                    detectionRepository.detectWaste(android.net.Uri.parse(selectedImage.sourceUri))
+                }
+            }.onSuccess { result ->
+                mainHandler.post {
+                    if (requestId == detectionRequestId) {
+                        uiState = uiState.copy(
+                            isScanningWaste = false,
+                            aiScanPreviewResult = result,
+                            aiScanErrorMessage = null
+                        )
+                    }
+                }
+            }.onFailure { error ->
+                mainHandler.post {
+                    if (requestId == detectionRequestId) {
+                        uiState = uiState.copy(
+                            isScanningWaste = false,
+                            aiScanPreviewResult = null,
+                            aiScanErrorMessage = error.localizedMessage
+                                ?: "AI scan failed. Please try again or fill the form manually."
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun acceptAiScanResult() {
+        val result = uiState.aiScanPreviewResult ?: return
+        uiState = uiState.copy(
+            aiScanResult = result,
+            aiScanErrorMessage = if (result.isConfident) {
+                null
+            } else {
+                "Low confidence AI result. Please review carefully."
+            }
+        )
+    }
+
+    fun clearAiScanPreview() {
+        detectionRequestId += 1
+        uiState = uiState.copy(
+            isScanningWaste = false,
+            aiScanPreviewResult = null,
+            aiScanErrorMessage = null
+        )
+    }
+
+    fun clearAiScanResult() {
+        uiState = uiState.copy(
+            aiScanResult = null,
+            aiScanErrorMessage = null
         )
     }
 
@@ -452,6 +608,7 @@ class WasteViewModel(
     override fun onCleared() {
         marketListener?.remove()
         myListingsListener?.remove()
+        detectionExecutor.shutdownNow()
         super.onCleared()
     }
 }

@@ -35,6 +35,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.ky.bananacycles.auth.LoginScreen
 import com.ky.bananacycles.auth.RegisterScreen
+import com.ky.bananacycles.screen.AIWasteScanScreen
 import com.ky.bananacycles.model.WasteItem
 import com.ky.bananacycles.screen.ChatDetailScreen
 import com.ky.bananacycles.screen.ChatScreen
@@ -58,6 +59,7 @@ import com.ky.bananacycles.viewmodel.WasteViewModel
 private object BottomRoutes {
     const val MARKET = "market"
     const val SELL = "sell"
+    const val AI_WASTE_SCAN = "ai_waste_scan"
     const val CHAT = "chat"
     const val TRANSACTION = "transaction"
     const val PROFILE = "profile"
@@ -147,6 +149,10 @@ class MainActivity : ComponentActivity() {
                         mutableStateOf(false)
                     }
 
+                    var isAiWasteScanOpen by remember {
+                        mutableStateOf(false)
+                    }
+
                     val totalUnreadChats = chatViewModel.uiState.totalUnreadFor(
                         chatViewModel.currentUserId
                     )
@@ -164,6 +170,7 @@ class MainActivity : ComponentActivity() {
                                         isSettingsOpen = false
                                         isHistoryOpen = false
                                         isEditProfileOpen = false
+                                        isAiWasteScanOpen = false
                                     },
                                     icon = {
                                         Icon(
@@ -186,6 +193,7 @@ class MainActivity : ComponentActivity() {
                                         isSettingsOpen = false
                                         isHistoryOpen = false
                                         isEditProfileOpen = false
+                                        isAiWasteScanOpen = false
                                     },
                                     icon = {
                                         Icon(
@@ -208,6 +216,7 @@ class MainActivity : ComponentActivity() {
                                         isSettingsOpen = false
                                         isHistoryOpen = false
                                         isEditProfileOpen = false
+                                        isAiWasteScanOpen = false
                                     },
                                     icon = {
                                         ChatNavigationIcon(
@@ -229,6 +238,7 @@ class MainActivity : ComponentActivity() {
                                         isSettingsOpen = false
                                         isHistoryOpen = false
                                         isEditProfileOpen = false
+                                        isAiWasteScanOpen = false
                                     },
                                     icon = {
                                         Icon(
@@ -251,6 +261,7 @@ class MainActivity : ComponentActivity() {
                                         isSettingsOpen = false
                                         isHistoryOpen = false
                                         isEditProfileOpen = false
+                                        isAiWasteScanOpen = false
                                     },
                                     icon = {
                                         Icon(
@@ -289,6 +300,7 @@ class MainActivity : ComponentActivity() {
                                             isSettingsOpen = false
                                             isHistoryOpen = false
                                             isEditProfileOpen = false
+                                            isAiWasteScanOpen = false
                                             showRegister = false
                                             isLoggedIn = false
                                         }
@@ -309,6 +321,20 @@ class MainActivity : ComponentActivity() {
                                         viewModel = historyViewModel,
                                         onBack = {
                                             isHistoryOpen = false
+                                        }
+                                    )
+                                }
+
+                                isAiWasteScanOpen -> {
+                                    AIWasteScanScreen(
+                                        viewModel = wasteViewModel,
+                                        onBack = {
+                                            isAiWasteScanOpen = false
+                                            selectedRoute = BottomRoutes.SELL
+                                        },
+                                        onUseResult = {
+                                            isAiWasteScanOpen = false
+                                            selectedRoute = BottomRoutes.SELL
                                         }
                                     )
                                 }
@@ -400,7 +426,10 @@ class MainActivity : ComponentActivity() {
 
                                 selectedRoute == BottomRoutes.SELL -> {
                                     UploadWasteScreen(
-                                        viewModel = wasteViewModel
+                                        viewModel = wasteViewModel,
+                                        onAiScanClick = {
+                                            isAiWasteScanOpen = true
+                                        }
                                     )
                                 }
 
@@ -426,6 +455,7 @@ class MainActivity : ComponentActivity() {
                                             isSettingsOpen = false
                                             isHistoryOpen = false
                                             isEditProfileOpen = false
+                                            isAiWasteScanOpen = false
                                         },
                                         onEditProfileClick = {
                                             isEditProfileOpen = true

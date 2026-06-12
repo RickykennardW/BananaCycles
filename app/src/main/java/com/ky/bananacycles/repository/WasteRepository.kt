@@ -3,6 +3,7 @@ package com.ky.bananacycles.repository
 import com.google.firebase.firestore.ListenerRegistration
 import com.ky.bananacycles.model.SelectedImage
 import com.ky.bananacycles.model.WasteItem
+import com.ky.bananacycles.model.WastePrediction
 import com.ky.bananacycles.service.WasteFirestoreService
 
 class WasteRepository(
@@ -14,11 +15,13 @@ class WasteRepository(
         sellerName: String,
         sellerPhotoUrl: String,
         wasteName: String,
+        description: String,
         category: String,
         stockKg: Double,
         pricePerKg: Int,
         selectedImage: SelectedImage?,
         existingImageUrl: String,
+        wastePrediction: WastePrediction?,
         onProgress: (Float?) -> Unit,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
@@ -28,11 +31,13 @@ class WasteRepository(
             sellerName = sellerName,
             sellerPhotoUrl = sellerPhotoUrl,
             wasteName = wasteName,
+            description = description,
             category = category,
             stockKg = stockKg,
             pricePerKg = pricePerKg,
             selectedImage = selectedImage,
             existingImageUrl = existingImageUrl,
+            wastePrediction = wastePrediction,
             onProgress = onProgress,
             onSuccess = onSuccess,
             onFailure = onFailure
@@ -42,11 +47,13 @@ class WasteRepository(
     fun updateListing(
         listingId: String,
         wasteName: String,
+        description: String,
         category: String,
         pricePerKg: Int,
         sellerId: String,
         selectedImage: SelectedImage?,
         existingImageUrl: String,
+        wastePrediction: WastePrediction?,
         onProgress: (Float?) -> Unit,
         onSuccess: () -> Unit,
         onFailure: (Exception) -> Unit
@@ -54,11 +61,13 @@ class WasteRepository(
         service.updateListing(
             listingId = listingId,
             wasteName = wasteName,
+            description = description,
             category = category,
             pricePerKg = pricePerKg,
             sellerId = sellerId,
             selectedImage = selectedImage,
             existingImageUrl = existingImageUrl,
+            wastePrediction = wastePrediction,
             onProgress = onProgress,
             onSuccess = onSuccess,
             onFailure = onFailure
