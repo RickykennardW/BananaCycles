@@ -9,21 +9,23 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -37,6 +39,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.LaunchedEffect
@@ -50,6 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.ky.bananacycles.component.ListingImage
 import com.ky.bananacycles.model.SelectedImage
@@ -70,6 +74,13 @@ fun AIWasteScanScreen(
     var previewUri by remember {
         mutableStateOf<String?>(null)
     }
+    var reviewedResult by remember {
+        mutableStateOf<WasteScanResult?>(null)
+    }
+
+    LaunchedEffect(uiState.aiScanPreviewResult) {
+        reviewedResult = uiState.aiScanPreviewResult?.normalizedForMaterial()
+    }
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -78,6 +89,7 @@ fun AIWasteScanScreen(
             uri.toSelectedImage(context)
                 .onSuccess { image ->
                     previewUri = image.sourceUri
+                    reviewedResult = null
                     viewModel.scanWasteImageForSell(image)
                 }
                 .onFailure { error ->
@@ -97,6 +109,7 @@ fun AIWasteScanScreen(
             bitmap.toSelectedImage(context)
                 .onSuccess { image ->
                     previewUri = image.sourceUri
+                    reviewedResult = null
                     viewModel.scanWasteImageForSell(image)
                 }
                 .onFailure { error ->
@@ -143,25 +156,60 @@ fun AIWasteScanScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            val resultToUse = reviewedResult
+            AnimatedVisibility(visible = resultToUse != null) {
+                Surface(
+                    tonalElevation = 3.dp,
+                    shadowElevation = 6.dp
+                ) {
+                    Button(
+                        onClick = {
+                            val finalResult = resultToUse ?: return@Button
+                            viewModel.acceptAiScanResult(finalResult)
+                            Toast.makeText(
+                                context,
+                                "AI successfully filled your listing.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            onUseResult()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text("Use This Result")
+                    }
+                }
+            }
         }
     ) { paddingValues ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .navigationBarsPadding(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                start = 16.dp,
+                top = 8.dp,
+                end = 16.dp,
+                bottom = if (reviewedResult != null) 96.dp else 16.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                text = "Scan waste item or upload image to auto-fill your sell form.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            item {
+                Text(
+                    text = "Scan a waste item or upload an image to automatically fill your sell form.",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 16.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            item {
                 Button(
                     onClick = {
                         if (ContextCompat.checkSelfPermission(
@@ -174,86 +222,113 @@ fun AIWasteScanScreen(
                             permissionLauncher.launch(Manifest.permission.CAMERA)
                         }
                     },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Text("Open Camera")
                 }
+            }
 
+            item {
                 OutlinedButton(
                     onClick = {
                         galleryLauncher.launch(
                             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                         )
                     },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Text("Upload From Gallery")
                 }
             }
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(220.dp)
-                        .padding(12.dp),
-                    contentAlignment = Alignment.Center
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
-                    if (previewUri.isNullOrBlank()) {
-                        Text(
-                            text = "Image preview will appear here.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    } else {
-                        ListingImage(
-                            imageUrl = previewUri.orEmpty(),
-                            listingId = "ai-scan-preview",
-                            modifier = Modifier.fillMaxWidth(),
-                            height = 196.dp
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .padding(10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (previewUri.isNullOrBlank()) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AddCircle,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(36.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "Image preview will appear here.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp)
+                                )
+                            }
+                        } else {
+                            ListingImage(
+                                imageUrl = previewUri.orEmpty(),
+                                listingId = "ai-scan-preview",
+                                modifier = Modifier.fillMaxWidth(),
+                                height = 160.dp
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                AnimatedVisibility(visible = uiState.isScanningWaste) {
+                    ScanningCard()
+                }
+            }
+
+            item {
+                AnimatedVisibility(visible = uiState.aiScanPreviewResult != null) {
+                    reviewedResult?.let { result ->
+                        ScanResultCard(
+                            result = result,
+                            onResultChange = { updated ->
+                                reviewedResult = updated
+                            },
+                            onRetakePhoto = {
+                                if (ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.CAMERA
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    viewModel.clearAiScanPreview()
+                                    reviewedResult = null
+                                    previewUri = null
+                                    cameraLauncher.launch(null)
+                                } else {
+                                    permissionLauncher.launch(Manifest.permission.CAMERA)
+                                }
+                            }
                         )
                     }
                 }
             }
 
-            when {
-                uiState.isScanningWaste -> {
-                    ScanningCard()
-                }
-
-                uiState.aiScanPreviewResult != null -> {
-                    ScanResultCard(
-                        result = uiState.aiScanPreviewResult,
-                        onRetakePhoto = {
-                            if (ContextCompat.checkSelfPermission(
-                                    context,
-                                    Manifest.permission.CAMERA
-                                ) == PackageManager.PERMISSION_GRANTED
-                            ) {
-                                viewModel.clearAiScanPreview()
-                                previewUri = null
-                                cameraLauncher.launch(null)
-                            } else {
-                                permissionLauncher.launch(Manifest.permission.CAMERA)
-                            }
-                        },
-                        onUseResult = { correctedResult ->
-                            viewModel.acceptAiScanResult(correctedResult)
-                            onUseResult()
-                        }
-                    )
-                }
-
-                uiState.aiScanErrorMessage != null -> {
+            item {
+                uiState.aiScanErrorMessage?.let { message ->
                     Text(
-                        text = uiState.aiScanErrorMessage,
+                        text = message,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -267,12 +342,12 @@ fun AIWasteScanScreen(
 private fun ScanningCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -284,7 +359,7 @@ private fun ScanningCard() {
                 )
                 Text(
                     text = "Scanning waste item...",
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp)
                 )
             }
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -292,71 +367,35 @@ private fun ScanningCard() {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ScanResultCard(
     result: WasteScanResult,
-    onRetakePhoto: () -> Unit,
-    onUseResult: (WasteScanResult) -> Unit
+    onResultChange: (WasteScanResult) -> Unit,
+    onRetakePhoto: () -> Unit
 ) {
-    var materialType by remember {
-        mutableStateOf(result.materialType.ifBlank { result.wasteName })
-    }
-    var category by remember {
-        mutableStateOf(result.category)
-    }
-    var wasteName by remember {
-        mutableStateOf(result.wasteName.ifBlank { result.materialType })
-    }
-    var suggestedPricePerKg by remember {
-        mutableStateOf(result.suggestedPricePerKg)
-    }
-    var priceExplanation by remember {
-        mutableStateOf(result.priceExplanation)
-    }
-    var materialQuality by remember {
-        mutableStateOf(result.materialQuality)
-    }
-
-    LaunchedEffect(result) {
-        val normalized = result.normalizedForMaterial()
-        materialType = normalized.materialType
-        category = normalized.category
-        wasteName = normalized.wasteName
-        suggestedPricePerKg = normalized.suggestedPricePerKg
-        priceExplanation = normalized.priceExplanation
-        materialQuality = normalized.materialQuality
-    }
-
-    val correctedResult = result.copy(
-        wasteName = wasteName.ifBlank { materialType },
-        materialType = materialType,
-        category = category.toOrganicOrInorganic(),
-        suggestedPricePerKg = suggestedPricePerKg,
-        priceExplanation = priceExplanation,
-        materialQuality = materialQuality
-    )
-
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "Scan Result Review",
-                style = MaterialTheme.typography.labelLarge,
+                text = "Detected",
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = materialType.ifBlank { "Unknown Material" },
-                style = MaterialTheme.typography.headlineSmall,
+                text = result.materialType.ifBlank { "Unknown Material" },
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp),
                 fontWeight = FontWeight.Bold
             )
-            Text("Confidence: ${result.confidencePercent}%")
+            CompactResultRow("Confidence", "${result.confidencePercent}%")
+            CompactResultRow("Category", result.category)
+            CompactResultRow("Reuse", result.reuseSuggestion.ifBlank { "-" })
+            CompactResultRow("Price", result.suggestedPricePerKg.ifBlank { "No suggestion" })
 
             if (!result.isConfident) {
                 Text(
@@ -367,9 +406,14 @@ private fun ScanResultCard(
             }
 
             OutlinedTextField(
-                value = wasteName,
+                value = result.wasteName.ifBlank { result.materialType },
                 onValueChange = {
-                    wasteName = it
+                    onResultChange(
+                        result.copy(
+                            wasteName = it,
+                            materialType = it
+                        ).normalizedForMaterial()
+                    )
                 },
                 modifier = Modifier.fillMaxWidth(),
                 label = {
@@ -378,47 +422,14 @@ private fun ScanResultCard(
                 singleLine = true
             )
 
-            Text(
-                text = "Detected Material",
-                style = MaterialTheme.typography.labelLarge
-            )
-
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                focusedMaterials.forEach { material ->
-                    FilterChip(
-                        selected = materialType == material,
-                        onClick = {
-                            val normalized = result.copy(materialType = material).normalizedForMaterial()
-                            materialType = normalized.materialType
-                            category = normalized.category
-                            wasteName = normalized.wasteName
-                            suggestedPricePerKg = normalized.suggestedPricePerKg
-                            priceExplanation = normalized.priceExplanation
-                            materialQuality = normalized.materialQuality
-                        },
-                        label = {
-                            Text(material)
-                        }
-                    )
-                }
-            }
-
-            Text(
-                text = "Category",
-                style = MaterialTheme.typography.labelLarge
-            )
-
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 listOf("Organic", "Inorganic").forEach { option ->
                     FilterChip(
-                        selected = category == option,
+                        selected = result.category == option,
                         onClick = {
-                            category = option
+                            onResultChange(result.copy(category = option))
                         },
                         label = {
                             Text(option)
@@ -427,34 +438,37 @@ private fun ScanResultCard(
                 }
             }
 
-            Text("Estimated Quality: ${materialQuality.ifBlank { "Unknown" }}")
-            Text("Suggested Price: ${suggestedPricePerKg.ifBlank { "No price suggestion" }}")
-            Text(
-                text = priceExplanation.ifBlank {
-                    "Price is a recommendation only. Seller can still set their own price."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
             OutlinedButton(
                 onClick = onRetakePhoto,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(16.dp)
             ) {
                 Text("Retake Photo")
             }
-
-            Button(
-                onClick = {
-                    onUseResult(correctedResult)
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text("Use This Result")
-            }
         }
+    }
+}
+
+@Composable
+private fun CompactResultRow(
+    label: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 
