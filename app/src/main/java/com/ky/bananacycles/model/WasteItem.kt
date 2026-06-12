@@ -40,6 +40,12 @@ data class WasteItem(
 
     val recyclability: String = "",
 
+    val materialQuality: String = "",
+
+    val suggestedPricePerKg: String = "",
+
+    val priceExplanation: String = "",
+
     val aiGenerated: Boolean = false
 
 )

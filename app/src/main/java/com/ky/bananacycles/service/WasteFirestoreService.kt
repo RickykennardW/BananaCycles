@@ -66,6 +66,9 @@ class WasteFirestoreService(
                 "contamination" to wastePrediction.orEmpty().contamination,
                 "reuseSuggestion" to wastePrediction.orEmpty().reuseSuggestion,
                 "recyclability" to wastePrediction.orEmpty().recyclability,
+                "materialQuality" to wastePrediction.orEmpty().materialQuality,
+                "suggestedPricePerKg" to wastePrediction.orEmpty().suggestedPricePerKg,
+                "priceExplanation" to wastePrediction.orEmpty().priceExplanation,
                 "aiGenerated" to (wastePrediction?.aiGenerated == true && wastePrediction.isConfident),
                 "createdAt" to FieldValue.serverTimestamp()
             )
@@ -129,6 +132,9 @@ class WasteFirestoreService(
                 "contamination" to wastePrediction.orEmpty().contamination,
                 "reuseSuggestion" to wastePrediction.orEmpty().reuseSuggestion,
                 "recyclability" to wastePrediction.orEmpty().recyclability,
+                "materialQuality" to wastePrediction.orEmpty().materialQuality,
+                "suggestedPricePerKg" to wastePrediction.orEmpty().suggestedPricePerKg,
+                "priceExplanation" to wastePrediction.orEmpty().priceExplanation,
                 "aiGenerated" to (wastePrediction?.aiGenerated == true && wastePrediction.isConfident)
             )
 
@@ -412,6 +418,9 @@ class WasteFirestoreService(
                 contamination = document.getString("contamination").orEmpty(),
                 reuseSuggestion = document.getString("reuseSuggestion").orEmpty(),
                 recyclability = document.getString("recyclability").orEmpty(),
+                materialQuality = document.getString("materialQuality").orEmpty(),
+                suggestedPricePerKg = document.getString("suggestedPricePerKg").orEmpty(),
+                priceExplanation = document.getString("priceExplanation").orEmpty(),
                 aiGenerated = document.getBoolean("aiGenerated") ?: false
             )
         }

@@ -12,6 +12,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,14 +29,17 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -226,8 +231,21 @@ fun AIWasteScanScreen(
                 uiState.aiScanPreviewResult != null -> {
                     ScanResultCard(
                         result = uiState.aiScanPreviewResult,
-                        onUseResult = {
-                            viewModel.acceptAiScanResult()
+                        onRetakePhoto = {
+                            if (ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.CAMERA
+                                ) == PackageManager.PERMISSION_GRANTED
+                            ) {
+                                viewModel.clearAiScanPreview()
+                                previewUri = null
+                                cameraLauncher.launch(null)
+                            } else {
+                                permissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        },
+                        onUseResult = { correctedResult ->
+                            viewModel.acceptAiScanResult(correctedResult)
                             onUseResult()
                         }
                     )
@@ -274,11 +292,51 @@ private fun ScanningCard() {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ScanResultCard(
     result: WasteScanResult,
-    onUseResult: () -> Unit
+    onRetakePhoto: () -> Unit,
+    onUseResult: (WasteScanResult) -> Unit
 ) {
+    var materialType by remember {
+        mutableStateOf(result.materialType.ifBlank { result.wasteName })
+    }
+    var category by remember {
+        mutableStateOf(result.category)
+    }
+    var wasteName by remember {
+        mutableStateOf(result.wasteName.ifBlank { result.materialType })
+    }
+    var suggestedPricePerKg by remember {
+        mutableStateOf(result.suggestedPricePerKg)
+    }
+    var priceExplanation by remember {
+        mutableStateOf(result.priceExplanation)
+    }
+    var materialQuality by remember {
+        mutableStateOf(result.materialQuality)
+    }
+
+    LaunchedEffect(result) {
+        val normalized = result.normalizedForMaterial()
+        materialType = normalized.materialType
+        category = normalized.category
+        wasteName = normalized.wasteName
+        suggestedPricePerKg = normalized.suggestedPricePerKg
+        priceExplanation = normalized.priceExplanation
+        materialQuality = normalized.materialQuality
+    }
+
+    val correctedResult = result.copy(
+        wasteName = wasteName.ifBlank { materialType },
+        materialType = materialType,
+        category = category.toOrganicOrInorganic(),
+        suggestedPricePerKg = suggestedPricePerKg,
+        priceExplanation = priceExplanation,
+        materialQuality = materialQuality
+    )
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
@@ -289,34 +347,201 @@ private fun ScanResultCard(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                text = "Detected:",
+                text = "Scan Result Review",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = result.wasteName.ifBlank { result.materialType },
+                text = materialType.ifBlank { "Unknown Material" },
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
-            Text("Category: ${result.category}")
             Text("Confidence: ${result.confidencePercent}%")
 
             if (!result.isConfident) {
                 Text(
-                    text = "AI is not confident. Please check the data manually.",
+                    text = "AI is not confident. Please verify manually.",
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
 
+            OutlinedTextField(
+                value = wasteName,
+                onValueChange = {
+                    wasteName = it
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = {
+                    Text("Waste Name")
+                },
+                singleLine = true
+            )
+
+            Text(
+                text = "Detected Material",
+                style = MaterialTheme.typography.labelLarge
+            )
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                focusedMaterials.forEach { material ->
+                    FilterChip(
+                        selected = materialType == material,
+                        onClick = {
+                            val normalized = result.copy(materialType = material).normalizedForMaterial()
+                            materialType = normalized.materialType
+                            category = normalized.category
+                            wasteName = normalized.wasteName
+                            suggestedPricePerKg = normalized.suggestedPricePerKg
+                            priceExplanation = normalized.priceExplanation
+                            materialQuality = normalized.materialQuality
+                        },
+                        label = {
+                            Text(material)
+                        }
+                    )
+                }
+            }
+
+            Text(
+                text = "Category",
+                style = MaterialTheme.typography.labelLarge
+            )
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("Organic", "Inorganic").forEach { option ->
+                    FilterChip(
+                        selected = category == option,
+                        onClick = {
+                            category = option
+                        },
+                        label = {
+                            Text(option)
+                        }
+                    )
+                }
+            }
+
+            Text("Estimated Quality: ${materialQuality.ifBlank { "Unknown" }}")
+            Text("Suggested Price: ${suggestedPricePerKg.ifBlank { "No price suggestion" }}")
+            Text(
+                text = priceExplanation.ifBlank {
+                    "Price is a recommendation only. Seller can still set their own price."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            OutlinedButton(
+                onClick = onRetakePhoto,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Retake Photo")
+            }
+
             Button(
-                onClick = onUseResult,
+                onClick = {
+                    onUseResult(correctedResult)
+                },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text("Use This Result")
             }
         }
+    }
+}
+
+private val focusedMaterials = listOf(
+    "Plastic Bottle",
+    "Glass Bottle",
+    "Aluminum Can",
+    "Cardboard",
+    "Paper",
+    "Food Waste",
+    "Leaves"
+)
+
+private fun WasteScanResult.normalizedForMaterial(): WasteScanResult {
+    val material = materialType.ifBlank { wasteName }
+    val normalizedMaterial = focusedMaterials.firstOrNull { option ->
+        option.equals(material, ignoreCase = true)
+    } ?: material
+
+    val category = normalizedMaterial.toOrganicOrInorganic()
+    val priceInfo = normalizedMaterial.priceSuggestion()
+
+    return copy(
+        wasteName = normalizedMaterial,
+        materialType = normalizedMaterial,
+        category = category,
+        materialQuality = priceInfo.quality,
+        suggestedPricePerKg = priceInfo.range,
+        priceExplanation = priceInfo.explanation
+    )
+}
+
+private fun String.toOrganicOrInorganic(): String {
+    return when (this) {
+        "Food Waste", "Leaves", "Organic" -> "Organic"
+        else -> "Inorganic"
+    }
+}
+
+private data class PriceSuggestion(
+    val quality: String,
+    val range: String,
+    val explanation: String
+)
+
+private fun String.priceSuggestion(): PriceSuggestion {
+    return when (this) {
+        "Plastic Bottle" -> PriceSuggestion(
+            "Good",
+            "Rp 2.500 - Rp 4.000/kg",
+            "Clean PET bottles usually have stable recycling demand."
+        )
+        "Glass Bottle" -> PriceSuggestion(
+            "Good",
+            "Rp 500 - Rp 1.500/kg",
+            "Glass has lower resale value but remains recyclable when sorted."
+        )
+        "Aluminum Can" -> PriceSuggestion(
+            "High",
+            "Rp 10.000 - Rp 20.000/kg",
+            "Aluminum has higher scrap value than most household recyclables."
+        )
+        "Cardboard" -> PriceSuggestion(
+            "Good",
+            "Rp 1.500 - Rp 3.000/kg",
+            "Dry cardboard is easy to sort and commonly accepted by recyclers."
+        )
+        "Paper" -> PriceSuggestion(
+            "Medium",
+            "Rp 1.000 - Rp 2.500/kg",
+            "Paper price depends heavily on dryness and contamination level."
+        )
+        "Food Waste" -> PriceSuggestion(
+            "Medium",
+            "Rp 0 - Rp 1.000/kg",
+            "Food waste has low direct resale value but can become compost."
+        )
+        "Leaves" -> PriceSuggestion(
+            "Medium",
+            "Rp 0 - Rp 1.000/kg",
+            "Leaves are useful for composting but usually have low marketplace price."
+        )
+        else -> PriceSuggestion(
+            "Unknown",
+            "No price suggestion",
+            "The material is outside the focused recyclable material set."
+        )
     }
 }
 

@@ -1173,6 +1173,8 @@ private fun WasteScanResult.toGeneratedDescription(): String {
         "Condition: ${cleanliness.ifBlank { "-" }}",
         "Recyclability: ${recyclability.ifBlank { "-" }}",
         "Suggested reuse: ${reuseSuggestion.ifBlank { "-" }}",
+        "Suggested price: ${suggestedPricePerKg.ifBlank { "-" }}",
+        "Price note: ${priceExplanation.ifBlank { "-" }}",
         "Detected by AI with $confidencePercent% confidence."
     ).joinToString(separator = "\n")
 }
@@ -1185,6 +1187,9 @@ private fun WasteScanResult.toWastePrediction(): WastePrediction {
         contamination = if (recyclability.equals("High", ignoreCase = true)) "Low" else "Needs Review",
         reuseSuggestion = reuseSuggestion,
         recyclability = recyclability,
+        materialQuality = materialQuality,
+        suggestedPricePerKg = suggestedPricePerKg,
+        priceExplanation = priceExplanation,
         confidence = confidence,
         aiGenerated = true
     )

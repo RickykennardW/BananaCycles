@@ -7,6 +7,9 @@ data class WastePrediction(
     val contamination: String = "Unknown",
     val reuseSuggestion: String = "Classify manually",
     val recyclability: String = "Unknown",
+    val materialQuality: String = "",
+    val suggestedPricePerKg: String = "",
+    val priceExplanation: String = "",
     val confidence: Float = 0f,
     val aiGenerated: Boolean = false
 ) {
@@ -14,5 +17,5 @@ data class WastePrediction(
         get() = (confidence.coerceIn(0f, 1f) * 100).toInt()
 
     val isConfident: Boolean
-        get() = confidence >= 0.5f
+        get() = confidence >= 0.7f
 }

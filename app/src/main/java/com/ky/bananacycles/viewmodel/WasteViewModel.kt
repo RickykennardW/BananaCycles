@@ -16,7 +16,6 @@ import com.ky.bananacycles.model.WastePrediction
 import com.ky.bananacycles.model.WasteScanResult
 import com.ky.bananacycles.repository.WasteDetectionRepository
 import com.ky.bananacycles.repository.WasteRepository
-import kotlinx.coroutines.runBlocking
 import java.util.concurrent.Executors
 
 private const val IMAGE_DEBUG_TAG = "IMAGE_DEBUG"
@@ -345,9 +344,7 @@ class WasteViewModel(
         // This keeps fake/demo AI replaceable with TFLite, Firebase ML, or Gemini Vision later.
         detectionExecutor.execute {
             runCatching {
-                runBlocking {
-                    detectionRepository.detectWaste(android.net.Uri.parse(selectedImage.sourceUri))
-                }
+                detectionRepository.scanWasteForSell(selectedImage)
             }.onSuccess { result ->
                 mainHandler.post {
                     if (requestId == detectionRequestId) {
@@ -373,14 +370,14 @@ class WasteViewModel(
         }
     }
 
-    fun acceptAiScanResult() {
-        val result = uiState.aiScanPreviewResult ?: return
+    fun acceptAiScanResult(correctedResult: WasteScanResult? = null) {
+        val result = correctedResult ?: uiState.aiScanPreviewResult ?: return
         uiState = uiState.copy(
             aiScanResult = result,
             aiScanErrorMessage = if (result.isConfident) {
                 null
             } else {
-                "Low confidence AI result. Please review carefully."
+                "AI is not confident. Please verify manually."
             }
         )
     }

@@ -14,10 +14,11 @@ class HeuristicWasteDetector : WasteDetector {
     override fun detect(image: SelectedImage): WastePrediction {
         // Keep this engine lightweight and swappable: the UI talks to WasteDetector,
         // while this default implementation uses local heuristics until a real ML model is added.
-        val analysisBytes = image.bytes.compressForAnalysis()
+        val analysisBytes = image.bytes.preprocessForAnalysis()
         val source = image.sourceUri.lowercase(Locale.US)
         val mime = image.mimeType.lowercase(Locale.US)
-        val evidence = "$source $mime"
+        val visualHint = analysisBytes.toVisualHint()
+        val evidence = "$source $mime $visualHint"
 
         val match = DETECTION_RULES.firstOrNull { rule ->
             rule.keywords.any { keyword -> evidence.contains(keyword) }
@@ -31,7 +32,10 @@ class HeuristicWasteDetector : WasteDetector {
                 contamination = "Unknown",
                 reuseSuggestion = "Please classify manually",
                 recyclability = "Unknown",
-                confidence = if (analysisBytes.isNotEmpty()) 0.42f else 0.28f,
+                materialQuality = "Unknown",
+                suggestedPricePerKg = "No price suggestion",
+                priceExplanation = "The image does not match the focused recyclable materials. Please verify manually.",
+                confidence = if (analysisBytes.isNotEmpty()) 0.36f else 0.24f,
                 aiGenerated = false
             )
         }
@@ -56,6 +60,9 @@ class HeuristicWasteDetector : WasteDetector {
             contamination = contamination,
             reuseSuggestion = match.reuseSuggestion,
             recyclability = match.recyclability,
+            materialQuality = match.materialQuality,
+            suggestedPricePerKg = match.suggestedPricePerKg,
+            priceExplanation = match.priceExplanation,
             confidence = match.confidence,
             aiGenerated = true
         )
@@ -65,15 +72,96 @@ class HeuristicWasteDetector : WasteDetector {
         return FakeWasteDetector().detectWaste(imageUri)
     }
 
-    private fun ByteArray.compressForAnalysis(): ByteArray {
+    private fun ByteArray.preprocessForAnalysis(): ByteArray {
         if (isEmpty()) return this
 
         return runCatching {
             val bitmap = BitmapFactory.decodeByteArray(this, 0, size) ?: return this
+            val cropped = bitmap.centerCropSquare()
+            val resized = Bitmap.createScaledBitmap(cropped, 224, 224, true)
+            val enhanced = resized.normalizeBrightnessAndContrast()
             val output = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 70, output)
+            enhanced.compress(Bitmap.CompressFormat.JPEG, 82, output)
             output.toByteArray()
         }.getOrDefault(this)
+    }
+
+    private fun Bitmap.centerCropSquare(): Bitmap {
+        val size = minOf(width, height)
+        val left = (width - size) / 2
+        val top = (height - size) / 2
+        return Bitmap.createBitmap(this, left, top, size, size)
+    }
+
+    private fun Bitmap.normalizeBrightnessAndContrast(): Bitmap {
+        val output = copy(Bitmap.Config.ARGB_8888, true)
+        var totalBrightness = 0L
+        val sampleStep = 8
+        var sampleCount = 0
+
+        for (y in 0 until height step sampleStep) {
+            for (x in 0 until width step sampleStep) {
+                val pixel = getPixel(x, y)
+                val red = android.graphics.Color.red(pixel)
+                val green = android.graphics.Color.green(pixel)
+                val blue = android.graphics.Color.blue(pixel)
+                totalBrightness += (red + green + blue) / 3
+                sampleCount += 1
+            }
+        }
+
+        val averageBrightness = if (sampleCount == 0) 128f else totalBrightness.toFloat() / sampleCount
+        val brightnessShift = 128f - averageBrightness
+        val contrast = 1.15f
+
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val pixel = getPixel(x, y)
+                val red = ((android.graphics.Color.red(pixel) + brightnessShift - 128f) * contrast + 128f).toInt().coerceIn(0, 255)
+                val green = ((android.graphics.Color.green(pixel) + brightnessShift - 128f) * contrast + 128f).toInt().coerceIn(0, 255)
+                val blue = ((android.graphics.Color.blue(pixel) + brightnessShift - 128f) * contrast + 128f).toInt().coerceIn(0, 255)
+                output.setPixel(x, y, android.graphics.Color.rgb(red, green, blue))
+            }
+        }
+
+        return output
+    }
+
+    private fun ByteArray.toVisualHint(): String {
+        val bitmap = BitmapFactory.decodeByteArray(this, 0, size) ?: return ""
+        var greenDominant = 0
+        var brownDominant = 0
+        var whiteDominant = 0
+        var metallicDominant = 0
+        val sampleStep = 16
+
+        for (y in 0 until bitmap.height step sampleStep) {
+            for (x in 0 until bitmap.width step sampleStep) {
+                val pixel = bitmap.getPixel(x, y)
+                val red = android.graphics.Color.red(pixel)
+                val green = android.graphics.Color.green(pixel)
+                val blue = android.graphics.Color.blue(pixel)
+                when {
+                    green > red + 20 && green > blue + 20 -> greenDominant += 1
+                    red > 95 && green in 55..145 && blue < 100 -> brownDominant += 1
+                    red > 190 && green > 190 && blue > 180 -> whiteDominant += 1
+                    kotlin.math.abs(red - green) < 18 && kotlin.math.abs(green - blue) < 18 && red in 105..210 -> metallicDominant += 1
+                }
+            }
+        }
+
+        val strongestHint = maxOf(greenDominant, brownDominant, whiteDominant, metallicDominant)
+        if (strongestHint == 0) {
+            return ""
+        }
+
+        return when (strongestHint) {
+            greenDominant -> "leaf leaves"
+            brownDominant -> "cardboard food"
+            whiteDominant -> "paper plastic"
+            metallicDominant -> "aluminum can metal"
+            else -> ""
+        }
     }
 
     private data class DetectionRule(
@@ -84,22 +172,21 @@ class HeuristicWasteDetector : WasteDetector {
         val contamination: String,
         val reuseSuggestion: String,
         val recyclability: String,
+        val materialQuality: String,
+        val suggestedPricePerKg: String,
+        val priceExplanation: String,
         val confidence: Float
     )
 
     companion object {
         private val DETECTION_RULES = listOf(
-            DetectionRule(listOf("bottle", "plastic", "pet"), "Inorganic", "Plastic Bottle", "Clean", "Low", "Recycle", "High", 0.96f),
-            DetectionRule(listOf("paper", "newspaper", "document"), "Inorganic", "Paper", "Clean", "Low", "Recycle into paper pulp", "High", 0.91f),
-            DetectionRule(listOf("cardboard", "box", "carton"), "Inorganic", "Cardboard Box", "Clean", "Low", "Reuse as packaging", "High", 0.9f),
-            DetectionRule(listOf("glass", "jar"), "Inorganic", "Glass Container", "Clean", "Low", "Recycle or reuse as container", "High", 0.88f),
-            DetectionRule(listOf("metal", "can", "aluminum", "steel"), "Inorganic", "Metal Can", "Clean", "Low", "Recycle as metal scrap", "High", 0.89f),
-            DetectionRule(listOf("organic", "banana", "food", "leaf", "compost"), "Organic", "Organic Waste", "Needs Sorting", "Medium", "Compost", "Medium", 0.86f),
-            DetectionRule(listOf("electronic", "ewaste", "battery", "cable", "phone"), "Inorganic", "Electronic Waste", "Needs Sorting", "Medium", "Send to certified e-waste recycler", "Medium", 0.84f),
-            DetectionRule(listOf("fabric", "cloth", "textile", "shirt"), "Inorganic", "Fabric/Textile", "Clean", "Low", "Upcycle or donate", "Medium", 0.82f),
-            DetectionRule(listOf("rubber", "tire", "tyre"), "Inorganic", "Rubber Material", "Needs Sorting", "Medium", "Recycle into rubber material", "Medium", 0.81f),
-            DetectionRule(listOf("wood", "timber", "pallet"), "Inorganic", "Wood Scrap", "Clean", "Low", "Reuse or upcycle", "Medium", 0.8f),
-            DetectionRule(listOf("mixed", "trash", "garbage"), "Inorganic", "Mixed Waste", "Contaminated", "High", "Sort before recycling", "Low", 0.72f)
+            DetectionRule(listOf("plastic", "pet", "plastic bottle"), "Inorganic", "Plastic Bottle", "Clean", "Low", "Recycle", "High", "Good", "Rp 2.500 - Rp 4.000/kg", "Clean PET bottles usually have stable recycling demand.", 0.92f),
+            DetectionRule(listOf("glass", "jar", "glass bottle"), "Inorganic", "Glass Bottle", "Clean", "Low", "Recycle or reuse as container", "High", "Good", "Rp 500 - Rp 1.500/kg", "Glass has lower resale value but remains recyclable when sorted.", 0.88f),
+            DetectionRule(listOf("aluminum", "aluminium", "can", "metal can"), "Inorganic", "Aluminum Can", "Clean", "Low", "Recycle as metal scrap", "High", "High", "Rp 10.000 - Rp 20.000/kg", "Aluminum has higher scrap value than most household recyclables.", 0.9f),
+            DetectionRule(listOf("cardboard", "box", "carton"), "Inorganic", "Cardboard", "Clean", "Low", "Reuse as packaging", "High", "Good", "Rp 1.500 - Rp 3.000/kg", "Dry cardboard is easy to sort and commonly accepted by recyclers.", 0.87f),
+            DetectionRule(listOf("paper", "newspaper", "document"), "Inorganic", "Paper", "Clean", "Low", "Recycle into paper pulp", "Medium", "Medium", "Rp 1.000 - Rp 2.500/kg", "Paper price depends heavily on dryness and contamination level.", 0.86f),
+            DetectionRule(listOf("food", "food waste", "banana", "leftover"), "Organic", "Food Waste", "Needs Sorting", "Medium", "Compost", "Medium", "Medium", "Rp 0 - Rp 1.000/kg", "Food waste has low direct resale value but can become compost.", 0.84f),
+            DetectionRule(listOf("leaf", "leaves", "plant"), "Organic", "Leaves", "Clean", "Low", "Compost", "Medium", "Medium", "Rp 0 - Rp 1.000/kg", "Leaves are useful for composting but usually have low marketplace price.", 0.82f)
         )
     }
 }
